@@ -12,6 +12,12 @@ Package required by MiFitness-Bridge: **com.mi.health**. Do not use **com.xiaomi
 | nuaays/ApkCrawler | https://github.com/nuaays/ApkCrawler | General market crawler, old approach; reference only. |
 | EFForg/apkeep issue #187 | https://github.com/EFForg/apkeep/issues/187 | Xiaomi store support requested, not established; reports maintenance download UI for many apps. |
 
+## Other maintained options (not direct GetApps downloads)
+
+- [andersonlucasg3/hyperos-updater-android](https://github.com/andersonlucasg3/hyperos-updater-android): contemporary multi-source updater (including MemeOS, Tencent MyApp and mirrors). It does **not** establish an official GetApps endpoint for `com.mi.health`; useful as a model for pluggable sources and installation UX.
+- [XiaomiFirmwareUpdater/miui-updates-tracker](https://github.com/XiaomiFirmwareUpdater/miui-updates-tracker) and [YuKongA/Updater-KMP](https://github.com/YuKongA/Updater-KMP): obtain official ROM information. APK extraction from ROM partitions may provide an authenticity-oriented fallback, but downloading entire ROMs on a phone at module install time is inappropriate.
+- [BolunHan/miui.eu.localization](https://github.com/BolunHan/miui.eu.localization/blob/main/extract-linux.md): documents extraction of HyperOS system APKs from official fastboot ROMs.
+
 ## Observations
 
 - Xiaomi's current website lists legacy `com.xiaomi.wearable` 2.16.4 with appID 926314 and a maintenance notice (https://app.mi.com/details?id=com.xiaomi.wearable).
