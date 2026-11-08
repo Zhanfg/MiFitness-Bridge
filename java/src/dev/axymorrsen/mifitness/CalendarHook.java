@@ -109,7 +109,10 @@ public final class CalendarHook {
                 hook.installed.add(methods[i]);
             }
             hook.enabled = true;
-            NativeBridge.log(NativeBridge.INFO, "Calendar gates 3/3 installed, version=359002, ROM=ColorOS17");
+            int deoptCount = hook.deoptimizeKnownCallers(loader, model);
+            NativeBridge.log(NativeBridge.INFO,
+                "Calendar gates 3/3 installed, deoptimized_callers="+deoptCount+
+                ", version=359002, ROM=ColorOS17");
         } catch (Throwable t) {
             if (hook != null) {
                 try { hook.rollback(); } catch (Throwable ignored) {
@@ -130,6 +133,48 @@ public final class CalendarHook {
             for(byte b:digest) hex.append(String.format(java.util.Locale.ROOT,"%02x",b & 0xff));
             return PINNED_SIGNER.equals(hex.toString());
         } catch(Throwable ignored) {return false;}
+    }
+
+    private int deoptimizeKnownCallers(ClassLoader loader, Class<?> model) {
+        // DEX-proven direct callers only; do not deoptimize the entire application.
+        // ART may have AOT-inlined the previous gate result into a caller.
+        int count=0;
+        try {
+            Class<?> ext=loader.loadClass(
+                "com.xiaomi.fitness.device.manager.extensions.DeviceModelExtKt");
+            Method caller=ext.getDeclaredMethod("getFeatureItemVisible", model, int.class);
+            caller.setAccessible(true);
+            if(NativeBridge.deoptimize(caller))count++;
+        } catch(Throwable ignored) {
+            NativeBridge.log(NativeBridge.WARN,"UI caller deoptimization unavailable");
+        }
+        try {
+            Class<?> holder=loader.loadClass(
+                "com.xiaomi.fitness.devicesettings.di.FeatureItemModule");
+            Method caller=holder.getDeclaredMethod("O",model);
+            caller.setAccessible(true);
+            if(NativeBridge.deoptimize(caller))count++;
+        } catch(Throwable ignored) {
+            NativeBridge.log(NativeBridge.WARN,"Settings caller deoptimization unavailable");
+        }
+        try {
+            Class<?> engine=loader.loadClass("com.xiaomi.fitness.sync.SyncEngine");
+            Method caller=engine.getDeclaredMethod("isSyncCalendar",model);
+            caller.setAccessible(true);
+            if(NativeBridge.deoptimize(caller))count++;
+            Method syncCaller=null;
+            for(Method m:engine.getDeclaredMethods()) {
+                if(m.getName().equals("syncCalendarToDevices") &&
+                    m.getParameterTypes().length==4) {syncCaller=m;break;}
+            }
+            if(syncCaller!=null) {
+                syncCaller.setAccessible(true);
+                if(NativeBridge.deoptimize(syncCaller))count++;
+            }
+        } catch(Throwable ignored) {
+            NativeBridge.log(NativeBridge.WARN,"Sync caller deoptimization unavailable");
+        }
+        return count;
     }
 
     private void rollback() {
