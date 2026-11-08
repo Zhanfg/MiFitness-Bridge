@@ -2,6 +2,13 @@
 # Read-only module manager action. Never prints accounts, tokens or health data.
 MODDIR="$(dirname "$0")"
 echo 'MiFitness Bridge v0.5.1-dev / Zygisk Next native status'
+if grep -Fxq 'calendar_hook=1' "$MODDIR/bridge.conf" 2>/dev/null; then
+  echo 'Mode=calendar-armed (new app processes)'
+elif grep -Fxq 'native_probe=1' "$MODDIR/bridge.conf" 2>/dev/null; then
+  echo 'Mode=observe-only (no ART hooks)'
+else
+  echo 'Mode=disabled or config unavailable'
+fi
 printf 'ROM=%s SDK=%s ABI=%s\n' \
   "$(getprop ro.build.version.oplusrom.display)" \
   "$(getprop ro.build.version.sdk)" \
