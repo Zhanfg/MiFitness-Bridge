@@ -64,6 +64,8 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_code_integrity.py' -v
       - name: Host Zygisk coexistence inventory tests
         run: python3 -m unittest discover -s tests -p 'test_hook_inventory.py' -v
+      - name: Verify policy declaration matches code pins
+        run: python3 -m unittest discover -s tests -p 'test_policy_declaration.py' -v
       - name: Compile callback DEX
         shell: bash
         run: |
