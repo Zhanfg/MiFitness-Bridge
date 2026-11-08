@@ -3,6 +3,10 @@ MODDIR="$(dirname "$0")"
 echo "MiFitness Bridge v0.5 diagnostic / C++ native Zygisk Next"
 printf 'ROM=%s SDK=%s\n' "$(getprop ro.build.version.oplusrom.display)" "$(getprop ro.build.version.sdk)"
 printf 'Systemization: '; cat "$MODDIR/systemize-state.txt" 2>/dev/null || echo unknown
+if [ -r "$MODDIR/boot-status.txt" ]; then
+  echo "Post-boot verification:"
+  cat "$MODDIR/boot-status.txt"
+fi
 if pm list packages -s 2>/dev/null | grep -Fxq 'package:com.mi.health'; then
   echo 'Mi Fitness SYSTEM=yes, not necessarily PRIVILEGED'
 else
