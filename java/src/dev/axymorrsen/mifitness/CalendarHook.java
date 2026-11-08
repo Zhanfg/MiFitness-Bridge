@@ -145,9 +145,19 @@ public final class CalendarHook {
     }
 
     private void rollback() {
-        for (int i=installed.size()-1;i>=0;i--) NativeBridge.unhook(installed.get(i));
-        installed.clear();
+        // Stop elevation before touching the non-atomic native UnHook lifecycle.
         enabled=false;
+        int failures=0;
+        for (int i=installed.size()-1;i>=0;i--) {
+            try {
+                if (!NativeBridge.unhook(installed.get(i))) failures++;
+            } catch (Throwable ignored) {
+                failures++;
+            }
+        }
+        installed.clear();
+        if(failures != 0) NativeBridge.log(NativeBridge.ERROR,
+            "Partial ART rollback: "+failures+" method(s) could not be unhooked");
     }
 
     private boolean calendarReady() {
