@@ -203,7 +203,7 @@ bool prepare_art_symbol_index() {
         break;
     }
     if(path.empty())return false;
-    const int fd=open(path.c_str(),O_RDONLY|O_CLOEXEC|O_NOFOLLOW);
+    const int fd=open(path.c_str(),O_RDONLY|O_CLOEXEC); // APEX libraries may use system-managed symlinks.
     if(fd<0)return false;
     struct stat st{};
     if(fstat(fd,&st)!=0 ||
