@@ -33,6 +33,38 @@ else
     echo "system_app=not_confirmed" >> "$OUT"
   fi
 fi
+# Run the bundled code/DEX/scripts integrity check before any other module helper.
+# A mismatched/missing module file means this module cannot safely claim trusted code.
+if [ -r "$MODDIR/check-code.sh" ]; then
+  integrity="$(sh "$MODDIR/check-code.sh" 2>/dev/null)"
+  check_result=$?
+else
+  integrity="code_integrity=checker_missing"
+  check_result=2
+fi
+printf '%s\n' "$integrity" >> "$OUT"
+if [ "$check_result" -ne 0 ]; then
+  # Stop arming new ART hooks, without touching Mi Fitness's own data.
+  tmp="$MODDIR/.bridge.conf.integrity.$"
+  if {
+    printf 'native_probe=1\n'
+    printf 'calendar_hook=0\n'
+    printf 'fail_on_conflict=1\n'
+  } > "$tmp"; then
+    chmod 0644 "$tmp" &&
+      mv -f "$tmp" "$MODDIR/bridge.conf" ||
+      rm -f "$tmp"
+  else
+    rm -f "$tmp"
+  fi
+  if touch "$MODDIR/disable" 2>/dev/null; then
+    echo "module_action=disabled_next_boot_due_to_code_integrity" >> "$OUT"
+  else
+    echo "module_action=manual_recovery_required" >> "$OUT"
+  fi
+  exit 0
+fi
+
 # User remains free to update, downgrade, or uninstall Mi Fitness.
 # Guard reports compatibility state, pauses only our hooks, and never writes to app data.
 if [ -r "$MODDIR/guard.sh" ]; then
