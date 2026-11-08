@@ -14,6 +14,7 @@ fi
 tmp="$MODDIR/.bridge.conf.safe.$$"
 umask 022
 if ! {
+  printf 'native_probe=1\n'
   printf 'calendar_hook=0\n'
   printf 'fail_on_conflict=1\n'
   printf '# emergency-safe-mode=1\n'
