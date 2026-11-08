@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "package_name": "com.mi.health",
+  "protection_type": "compatibility_profile_only",
+  "reviewed_version_code": 359002,
+  "reviewed_apk_sha256": "112e603b8342cb134402a6dcabdf3ec16fd5171ec65a1d5f7cb7efd83cb0995d",
+  "reviewed_signer_sha256": "c9009d01ebf9f5d0302bc71b2fe9aa9a47a432bba17308a3111b75d7b2149025",
+  "allow_owner_upgrade_downgrade_uninstall": true,
+  "block_package_manager_operations": false,
+  "on_version_or_apk_mismatch": "pause_bridge_calendar_hooks_for_new_processes",
+  "on_self_owned_systemless_overlay_drift": "disable_bridge_next_boot",
+  "on_other_zygisk_modules": "audit_coexistence_only",
+  "on_known_art_engine_conflict": "fail_closed_before_bridge_art_hooks",
+  "root_resistant": false,
+  "app_private_data_inspected": false,
+  "app_private_data_backup": "not_performed",
+  "app_private_data_recovery": "not_provided"
+}
