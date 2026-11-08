@@ -65,3 +65,12 @@ python3 tools/verify_calendar_abi.py /path/to/verified-com.mi.health.apk
 This tool writes only a JSON summary to stdout. It never extracts a proprietary DEX to the repository or uploads the candidate. The script rejects malformed DEX files, missing methods and changes to the static/instance ABI. A passing ABI test **does not** prove the caller semantics, signature trust, installed package identity or actual functionality. `aapt` and `apksigner` remain mandatory before considering an APK update.
 
 The experimental `xiaomi_market_probe.py --download` code now **requires**: exact package `com.mi.health`, trusted Xiaomi signing certificate, `versionCode=359002` and a matching DEX ABI. It refuses versions above 359002 until a separate method/behavior review is completed. Do not interpret this as a verified latest-version update channel.
+
+## 2026-11-08 official GetApps API follow-up
+
+- Xiaomi's developer FAQ explains `mimarket://details?id=<package>&startDownload=true` as **launching a preinstalled GetApps** on supported Xiaomi devices, not as a direct APK download API. Source: https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2296
+- Xiaomi's updated store self-update guidance (2026-10-27) uses `market://details?id=pkgName` to **delegate installation to the store**. It does not expose a standalone APK URL suitable for our root module. Source: https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2006
+- The maintained `andersonlucasg3/hyperos-updater-android` explicitly declined direct GetApps support after `app.market.xiaomi.com/apm/app` returned HTTP 400 requiring undocumented parameters/signatures. This independently supports keeping our direct auto-installer disabled. Source: https://github.com/andersonlucasg3/hyperos-updater-android
+- The Xiaomi store developer automatic release API is **for publishers uploading APKs**, not a consumer download endpoint: https://dev.mi.com/distribute/doc/details?pId=1134
+
+**Decision:** Do not disguise GetApps' user-mediated `market://` intent or publisher upload endpoints as unattended APK fetching. No third-party APK is mounted into `system/app` without checking package, signing lineage, trusted version and hook ABI/semantics.
