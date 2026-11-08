@@ -53,6 +53,8 @@ jobs:
             java/tests/dev/axymorrsen/mifitness/BackupInvokerTest.java
           java -cp build/testclasses dev.axymorrsen.mifitness.GatePolicyTest
           java -cp build/testclasses dev.axymorrsen.mifitness.BackupInvokerTest
+      - name: Host systemization safety tests
+        run: python3 -m unittest discover -s tests -p 'test_systemizer.py' -v
       - name: Compile callback DEX
         shell: bash
         run: |
@@ -75,7 +77,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          sh -n root-module/customize.sh root-module/service.sh root-module/action.sh
+          for script in root-module/customize.sh root-module/service.sh root-module/action.sh; do sh -n "$script"; done
           mkdir -p build/stage/zygisk build/stage/licenses
           cp root-module/module.prop root-module/customize.sh root-module/action.sh root-module/service.sh root-module/bridge.conf build/stage/
           cp build/dex/classes.dex build/stage/classes.dex
