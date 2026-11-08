@@ -68,21 +68,37 @@ bool read_config(int dir) {
     int fd=openat(dir,"bridge.conf",O_RDONLY|O_CLOEXEC|O_NOFOLLOW);
     if(fd<0)return false;
     char buf[1025]{};
-    ssize_t n=read(fd,buf,1024);
+    const ssize_t n=read(fd,buf,1024);
     close(fd);
     if(n<=0||n>=1024)return false;
     buf[n]=0;
-    std::string str(buf,static_cast<size_t>(n));
-    enable_calendar=false;
-    enable_probe=false;
-    fail_on_conflict=true;
-    std::istringstream stream(str);
+    std::istringstream stream(std::string(buf,static_cast<size_t>(n)));
     std::string line;
+    bool seen_probe=false,seen_hook=false,seen_conflict=false;
+    bool probe=false,hook=false;
     while(std::getline(stream,line)) {
-        if(line=="calendar_hook=1")enable_calendar=true;
-        if(line=="native_probe=1")enable_probe=true;
-        if(line=="fail_on_conflict=0")fail_on_conflict=false;
+        if(line.empty()||line[0]=='#')continue;
+        if(line=="native_probe=1" && !seen_probe) {
+            seen_probe=true;
+            probe=true;
+        } else if(line=="calendar_hook=1" && !seen_hook) {
+            seen_hook=true;
+            hook=true;
+        } else if(line=="calendar_hook=0" && !seen_hook) {
+            seen_hook=true;
+            hook=false;
+        } else if(line=="fail_on_conflict=1" && !seen_conflict) {
+            seen_conflict=true;
+        } else {
+            __android_log_write(ANDROID_LOG_WARN,kTag,
+                "Bridge configuration invalid or contains unsupported options");
+            return false;
+        }
     }
+    if(!seen_probe||!seen_hook||!seen_conflict)return false;
+    enable_calendar=hook;
+    enable_probe=probe;
+    fail_on_conflict=true;
     return true;
 }
 bool conflicting_runtime() {
