@@ -6,7 +6,6 @@ Android SDK aapt and apksigner to verify package/version/signing certificate.
 This is NOT a Xiaomi-supported public download API.
 """
 import argparse
-import hashlib
 import html
 import json
 import re
@@ -17,6 +16,11 @@ import tempfile
 from pathlib import Path
 from urllib.parse import quote, urlparse
 from urllib.request import Request, build_opener, HTTPRedirectHandler
+
+if __package__:
+    from .verify_calendar_abi import inspect as inspect_calendar_abi
+else:
+    from verify_calendar_abi import inspect as inspect_calendar_abi
 
 TARGET = "com.mi.health"
 BASELINE_VERSION_CODE = 359002
@@ -141,15 +145,23 @@ def verify_apk(path, minimum_version):
     version_code = int(match.group(2))
     if version_code < minimum_version:
         raise ValueError("downloaded APK is older than requested baseline")
+    if version_code != BASELINE_VERSION_CODE:
+        raise ValueError("New Mi Fitness version has no approved native Hook semantic profile; download refused")
     result = subprocess.run(["apksigner", "verify", "--print-certs", str(path)], capture_output=True, text=True, timeout=60)
     if result.returncode != 0:
         raise ValueError("APK signature verification failed")
     signers = re.findall(r"Signer #\d+ certificate SHA-256 digest:\s*([0-9a-fA-F:]+)", result.stdout)
     if not signers or any(x.replace(":", "").lower() != PINNED_CERT_SHA256 for x in signers):
         raise ValueError("APK signing certificate is not the trusted baseline signer")
-    with open(path, "rb") as verified_file:
-        digest = hashlib.file_digest(verified_file, "sha256").hexdigest()
-    return {"package": TARGET, "version_code": version_code, "sha256": digest}
+    abi = inspect_calendar_abi(Path(path))
+    if not abi["abi_match"]:
+        raise ValueError("Downloaded APK no longer matches required 3.59.2 ART method ABI")
+    return {
+        "package": TARGET, "version_code": version_code,
+        "sha256": abi["apk_sha256"],
+        "signature_verified": True, "calendar_abi_match": True,
+        "semantic_profile": "359002-reviewed-only"
+    }
 
 def main():
     ap = argparse.ArgumentParser(description="Probe legacy Xiaomi market for com.mi.health (fail closed)")
