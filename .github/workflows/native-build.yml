@@ -17,6 +17,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: mifitness-native-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   arm64:
     runs-on: ubuntu-24.04
@@ -66,6 +69,13 @@ jobs:
           test -s build/dex/classes.dex
       - name: Fetch pinned native dependencies
         run: bash scripts/fetch-native-deps.sh
+      - name: Restore pinned NDK object cache
+        uses: actions/cache@v4
+        with:
+          path: build/native
+          key: mifitness-arm64-ndk29-${{ runner.os }}-${{ hashFiles('native/**', 'scripts/fetch-native-deps.sh', 'scripts/patch-lsplant-unhook.py') }}
+          restore-keys: |
+            mifitness-arm64-ndk29-${{ runner.os }}-
       - name: Compile arm64 native Zygisk payload
         run: |
           set -euxo pipefail
