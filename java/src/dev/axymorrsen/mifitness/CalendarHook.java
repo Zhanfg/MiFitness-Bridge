@@ -37,6 +37,10 @@ public final class CalendarHook {
         "isCalendarSyncAndroidVersion"
     };
     private final Application app;
+    private final boolean providerPresent;
+    private final Object deviceManagerLock = new Object();
+    private volatile Object cachedDeviceManager;
+    private volatile Method cachedGetCurrentDeviceModel;
     private final Method isSupportFeature;
     private final Method[] targets;
     private final Object[] callbacks;
@@ -45,7 +49,9 @@ public final class CalendarHook {
     private volatile WeakReference<Object> lastCapableModel = new WeakReference<>(null);
 
     private CalendarHook(Application a, Method feature, Method[] methods) {
-        this.app = a; this.isSupportFeature = feature; this.targets = methods;
+        this.app = a;
+        this.providerPresent = a.getPackageManager().resolveContentProvider("com.android.calendar", 0) != null;
+        this.isSupportFeature = feature; this.targets = methods;
         this.callbacks = new Object[] {new Callback(0), new Callback(1), new Callback(2)};
     }
 
@@ -133,10 +139,12 @@ public final class CalendarHook {
     }
 
     private boolean calendarReady() {
+        // CalendarProvider is a system component; resolve it once on initialization.
+        // Runtime permission must still be checked each time it can change.
         try {
-            return app.checkSelfPermission(Manifest.permission.READ_CALENDAR)
-                    == PackageManager.PERMISSION_GRANTED &&
-                   app.getPackageManager().resolveContentProvider("com.android.calendar",0)!=null;
+            return providerPresent &&
+                app.checkSelfPermission(Manifest.permission.READ_CALENDAR) ==
+                    PackageManager.PERMISSION_GRANTED;
         } catch(Throwable ignored) { return false; }
     }
     private boolean supportsCalendar(Object model) {
@@ -148,17 +156,32 @@ public final class CalendarHook {
     }
     private Object currentWearable() {
         try {
-            ClassLoader loader=app.getClassLoader();
-            Class<?> manager=loader.loadClass("com.xiaomi.fitness.device.manager.export.WearableDeviceManager");
-            Class<?> managerExt=loader.loadClass("com.xiaomi.fitness.device.manager.export.DeviceManagerExtKt");
-            Object companion=manager.getDeclaredField("Companion").get(null);
-            Method getter=null;
-            for(Method m: managerExt.getDeclaredMethods()) if (m.getName().equals("getInstance") && m.getParameterTypes().length==1) {getter=m;break;}
-            if(getter==null) return null;
-            getter.setAccessible(true);
-            Object instance=getter.invoke(null,companion);
-            Method current=instance.getClass().getMethod("getCurrentDeviceModel");
-            return current.invoke(instance);
+            Object manager=cachedDeviceManager;
+            Method current=cachedGetCurrentDeviceModel;
+            if(manager==null || current==null) {
+                synchronized (deviceManagerLock) {
+                    manager=cachedDeviceManager;
+                    current=cachedGetCurrentDeviceModel;
+                    if(manager==null || current==null) {
+                        ClassLoader loader=app.getClassLoader();
+                        Class<?> managerClass=loader.loadClass(
+                            "com.xiaomi.fitness.device.manager.export.WearableDeviceManager");
+                        Class<?> companionClass=loader.loadClass(
+                            "com.xiaomi.fitness.device.manager.export.WearableDeviceManager$Companion");
+                        Class<?> managerExt=loader.loadClass(
+                            "com.xiaomi.fitness.device.manager.export.DeviceManagerExtKt");
+                        Object companion=managerClass.getDeclaredField("Companion").get(null);
+                        Method getter=managerExt.getDeclaredMethod("getInstance",companionClass);
+                        getter.setAccessible(true);
+                        manager=getter.invoke(null,companion);
+                        if(manager==null)return null;
+                        current=manager.getClass().getMethod("getCurrentDeviceModel");
+                        cachedGetCurrentDeviceModel=current;
+                        cachedDeviceManager=manager;
+                    }
+                }
+            }
+            return current.invoke(manager);
         } catch(Throwable ignored) {return null;}
     }
 
