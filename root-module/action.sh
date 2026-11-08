@@ -1,7 +1,7 @@
 #!/system/bin/sh
 # Read-only module manager action. Never prints accounts, tokens or health data.
 MODDIR="$(dirname "$0")"
-echo 'MiFitness Bridge v0.5.0-dev / Zygisk Next native status'
+echo 'MiFitness Bridge v0.5.1-dev / Zygisk Next native status'
 printf 'ROM=%s SDK=%s ABI=%s\n' \
   "$(getprop ro.build.version.oplusrom.display)" \
   "$(getprop ro.build.version.sdk)" \
