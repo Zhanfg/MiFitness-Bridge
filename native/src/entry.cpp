@@ -21,6 +21,7 @@
 #include <chrono>
 #include <atomic>
 #include <fstream>
+#include <sstream>
 
 namespace {
 constexpr const char *kTag="MiFitnessBridge";
@@ -68,8 +69,14 @@ bool read_config(int dir) {
     if(n<=0||n>=1024)return false;
     buf[n]=0;
     std::string str(buf,static_cast<size_t>(n));
-    enable_calendar=str.find("calendar_hook=1")!=std::string::npos;
-    fail_on_conflict=str.find("fail_on_conflict=0")==std::string::npos;
+    enable_calendar=false;
+    fail_on_conflict=true;
+    std::istringstream stream(str);
+    std::string line;
+    while(std::getline(stream,line)) {
+        if(line=="calendar_hook=1")enable_calendar=true;
+        if(line=="fail_on_conflict=0")fail_on_conflict=false;
+    }
     return true;
 }
 bool conflicting_runtime() {
@@ -296,7 +303,9 @@ public:
         const bool cfg=read_config(dir);
         const bool payload=file_read(dir,"classes.dex",&dex);
         close(dir);
-        if(!cfg||!payload||!enable_calendar){target_=false;return;}
+        if(!cfg||!payload||!enable_calendar){
+            target_=false;dex.clear();api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);return;
+        }
     }
     void postAppSpecialize(const zygisk::AppSpecializeArgs *) override {
         if(target_) {
