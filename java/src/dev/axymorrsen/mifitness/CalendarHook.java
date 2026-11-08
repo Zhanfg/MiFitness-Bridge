@@ -42,30 +42,36 @@ public final class CalendarHook {
     public static void install(Application app, boolean configEnabled) {
         if (!configEnabled || app == null || !APP.equals(app.getPackageName())) return;
         CalendarHook hook = null;
+        String phase = "environment";
         try {
             if (Build.VERSION.SDK_INT != 37 || !"PJZ110".equalsIgnoreCase(Build.MODEL)) {
                 NativeBridge.log(NativeBridge.WARN, "Unsupported ROM/device; hooks disabled");
                 return;
             }
+            phase = "package_signer";
             PackageInfo info = app.getPackageManager().getPackageInfo(
                     APP, PackageManager.GET_SIGNING_CERTIFICATES);
             if (info.versionCode != PINNED_VERSION || !signerMatches(info)) {
                 NativeBridge.log(NativeBridge.WARN, "Mi Fitness version/signature mismatch; hooks disabled");
                 return;
             }
+            phase = "target_resolver";
             ClassLoader loader = app.getClassLoader();
             TargetResolver.Gates resolved = TargetResolver.resolveGates(loader);
             Class<?> model = resolved.modelType;
             Method feature = resolved.isSupportFeature;
             Method[] methods = resolved.methods;
+            phase = "calendar_provider";
             hook = new CalendarHook(app, feature, methods);
             if (!hook.calendarReady()) {
                 NativeBridge.log(NativeBridge.WARN, "Calendar Provider or READ_CALENDAR unavailable; hooks disabled");
                 return;
             }
+            phase = "callback_resolution";
             Method callback = Callback.class.getDeclaredMethod("invoke", Object[].class);
             callback.setAccessible(true);
             for (int i=0;i<methods.length;i++) {
+                phase = "hook_"+i;
                 Callback c = (Callback) hook.callbacks[i];
                 c.backup = NativeBridge.hook(methods[i], c, callback);
                 if (c.backup==null) {
@@ -76,6 +82,7 @@ public final class CalendarHook {
                 hook.installed.add(methods[i]);
             }
             hook.enabled = true;
+            phase = "deoptimization";
             int deoptCount = hook.deoptimizeKnownCallers(loader, model);
             NativeBridge.log(NativeBridge.INFO,
                 "Calendar gates 3/3 installed, deoptimized_callers="+deoptCount+
@@ -86,7 +93,8 @@ public final class CalendarHook {
                     NativeBridge.log(NativeBridge.ERROR, "Calendar rollback encountered an exception");
                 }
             }
-            NativeBridge.log(NativeBridge.ERROR, "Calendar gate resolution failed: "+t.getClass().getSimpleName());
+            NativeBridge.log(NativeBridge.ERROR,
+                "Calendar install failed at "+phase+": "+t.getClass().getSimpleName());
         }
     }
 
