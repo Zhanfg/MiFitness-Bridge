@@ -52,10 +52,12 @@ jobs:
           find java/hostmocks java/tests -name '*.java' -print0 | xargs -0 javac --release 8 -d build/testclasses \
             java/src/dev/axymorrsen/mifitness/GatePolicy.java \
             java/src/dev/axymorrsen/mifitness/BackupInvoker.java \
-            java/src/dev/axymorrsen/mifitness/TargetResolver.java
+            java/src/dev/axymorrsen/mifitness/TargetResolver.java \
+            java/src/dev/axymorrsen/mifitness/ApkIntegrity.java
           java -cp build/testclasses dev.axymorrsen.mifitness.GatePolicyTest
           java -cp build/testclasses dev.axymorrsen.mifitness.BackupInvokerTest
           java -cp build/testclasses dev.axymorrsen.mifitness.TargetResolverTest
+          java -cp build/testclasses dev.axymorrsen.mifitness.ApkIntegrityTest
       - name: Host systemization safety tests
         run: python3 -m unittest discover -s tests -p 'test_systemizer.py' -v
       - name: Compile callback DEX
