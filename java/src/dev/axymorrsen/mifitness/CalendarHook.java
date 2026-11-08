@@ -6,6 +6,9 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import java.lang.reflect.InvocationTargetException;
+import android.content.pm.Signature;
+import java.security.MessageDigest;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -17,6 +20,7 @@ import java.util.List;
  */
 public final class CalendarHook {
     private static final int PINNED_VERSION = 359002;
+    private static final String PINNED_SIGNER = "c9009d01ebf9f5d0302bc71b2fe9aa9a47a432bba17308a3111b75d7b2149025";
     private static final String APP = "com.mi.health";
     private static final String MODEL = "com.xiaomi.fitness.device.manager.export.WearableDeviceModel";
     private static final String CAPABILITY = "com.xiaomi.fitness.device.manager.DeviceModelExtKt";
@@ -36,6 +40,7 @@ public final class CalendarHook {
     private final Object[] callbacks;
     private final List<Method> installed = new ArrayList<>(3);
     private volatile boolean enabled;
+    private volatile WeakReference<Object> lastCapableModel = new WeakReference<>(null);
 
     private CalendarHook(Application a, Method feature, Method[] methods) {
         this.app = a; this.isSupportFeature = feature; this.targets = methods;
@@ -49,9 +54,10 @@ public final class CalendarHook {
                 NativeBridge.log(NativeBridge.WARN, "Unsupported ROM/device; hooks disabled");
                 return;
             }
-            PackageInfo info = app.getPackageManager().getPackageInfo(APP, 0);
-            if (info.versionCode != PINNED_VERSION) {
-                NativeBridge.log(NativeBridge.WARN, "Mi Fitness version differs from 3.59.2; hooks disabled");
+            PackageInfo info = app.getPackageManager().getPackageInfo(
+                    APP, PackageManager.GET_SIGNING_CERTIFICATES);
+            if (info.versionCode != PINNED_VERSION || !signerMatches(info)) {
+                NativeBridge.log(NativeBridge.WARN, "Mi Fitness version/signature mismatch; hooks disabled");
                 return;
             }
             ClassLoader loader = app.getClassLoader();
@@ -94,6 +100,18 @@ public final class CalendarHook {
         } catch (Throwable t) {
             NativeBridge.log(NativeBridge.ERROR, "Calendar gate resolution failed: "+t.getClass().getSimpleName());
         }
+    }
+
+    private static boolean signerMatches(PackageInfo info) {
+        try {
+            if (info.signingInfo==null) return false;
+            Signature[] s = info.signingInfo.getApkContentsSigners();
+            if (s==null || s.length!=1) return false;
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(s[0].toByteArray());
+            StringBuilder hex = new StringBuilder(64);
+            for(byte b:digest) hex.append(String.format(java.util.Locale.ROOT,"%02x",b & 0xff));
+            return PINNED_SIGNER.equals(hex.toString());
+        } catch(Throwable ignored) {return false;}
     }
 
     private void rollback() {
@@ -146,6 +164,9 @@ public final class CalendarHook {
                 boolean before=Boolean.TRUE.equals(original.invoke(receiver,parameters));
                 if(before || !enabled) return before;
                 Object model=(gate==2) ? currentWearable() : args[0];
+                if(model==null && gate==2) model=lastCapableModel.get();
+                if(gate!=2 && supportsCalendar(model))
+                    lastCapableModel = new WeakReference<>(model);
                 return GatePolicy.allow(before,true,calendarReady(),supportsCalendar(model),true);
             } catch(InvocationTargetException e) {
                 throw e.getCause();
