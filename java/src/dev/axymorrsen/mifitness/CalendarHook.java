@@ -21,25 +21,10 @@ public final class CalendarHook {
     private static final int PINNED_VERSION = 359002;
     private static final String PINNED_SIGNER = "c9009d01ebf9f5d0302bc71b2fe9aa9a47a432bba17308a3111b75d7b2149025";
     private static final String APP = "com.mi.health";
-    private static final String MODEL = "com.xiaomi.fitness.device.manager.export.WearableDeviceModel";
-    // Verified in classes10.dex: isSupportFeature(DeviceModel, String), not WearableDeviceModel.
-    private static final String FEATURE_MODEL = "com.xiaomi.fitness.device.manager.DeviceModel";
-    private static final String CAPABILITY = "com.xiaomi.fitness.device.manager.DeviceModelExtKt";
-    private static final String[] GATE_CLASSES = {
-        "com.xiaomi.fitness.device.manager.extensions.DeviceModelExtKt",
-        "com.xiaomi.fitness.devicesettings.di.FeatureItemModule",
-        "com.xiaomi.fitness.devicesettings.di.DeviceSettingsSyncHelperImpl"
-    };
-    private static final String[] GATE_METHODS = {
-        "isSupportSyncPhoneSchedule",
-        "createSyncScheduleItem$lambda$59",
-        "isCalendarSyncAndroidVersion"
-    };
     private final Application app;
     private final boolean providerPresent;
     private final Object deviceManagerLock = new Object();
-    private volatile Object cachedDeviceManager;
-    private volatile Method cachedGetCurrentDeviceModel;
+    private volatile TargetResolver.WearableManagerReader cachedReader;
     private final Method isSupportFeature;
     private final Method[] targets;
     private final Object[] callbacks;
@@ -69,27 +54,10 @@ public final class CalendarHook {
                 return;
             }
             ClassLoader loader = app.getClassLoader();
-            Class<?> model = loader.loadClass(MODEL);
-            Class<?> ext = loader.loadClass(CAPABILITY);
-            Method feature = ext.getDeclaredMethod("isSupportFeature", loader.loadClass(FEATURE_MODEL), String.class);
-            if (feature.getReturnType()!=boolean.class || !Modifier.isStatic(feature.getModifiers())) {
-                NativeBridge.log(NativeBridge.ERROR, "Feature predicate ABI mismatch; hooks disabled");
-                return;
-            }
-            feature.setAccessible(true);
-            Method[] methods = new Method[3];
-            for (int i=0;i<methods.length;i++) {
-                Class<?> holder = loader.loadClass(GATE_CLASSES[i]);
-                methods[i] = (i==2)
-                    ? holder.getDeclaredMethod(GATE_METHODS[i])
-                    : holder.getDeclaredMethod(GATE_METHODS[i], model);
-                methods[i].setAccessible(true);
-                if (methods[i].getReturnType()!=boolean.class ||
-                    Modifier.isStatic(methods[i].getModifiers())!=(i!=2)) {
-                    NativeBridge.log(NativeBridge.ERROR, "Gate ABI mismatch: "+i);
-                    return;
-                }
-            }
+            TargetResolver.Gates resolved = TargetResolver.resolveGates(loader);
+            Class<?> model = resolved.modelType;
+            Method feature = resolved.isSupportFeature;
+            Method[] methods = resolved.methods;
             hook = new CalendarHook(app, feature, methods);
             if (!hook.calendarReady()) {
                 NativeBridge.log(NativeBridge.WARN, "Calendar Provider or READ_CALENDAR unavailable; hooks disabled");
@@ -200,32 +168,17 @@ public final class CalendarHook {
     }
     private Object currentWearable() {
         try {
-            Object manager=cachedDeviceManager;
-            Method current=cachedGetCurrentDeviceModel;
-            if(manager==null || current==null) {
+            TargetResolver.WearableManagerReader reader=cachedReader;
+            if(reader==null) {
                 synchronized (deviceManagerLock) {
-                    manager=cachedDeviceManager;
-                    current=cachedGetCurrentDeviceModel;
-                    if(manager==null || current==null) {
-                        ClassLoader loader=app.getClassLoader();
-                        Class<?> managerClass=loader.loadClass(
-                            "com.xiaomi.fitness.device.manager.export.WearableDeviceManager");
-                        Class<?> companionClass=loader.loadClass(
-                            "com.xiaomi.fitness.device.manager.export.WearableDeviceManager$Companion");
-                        Class<?> managerExt=loader.loadClass(
-                            "com.xiaomi.fitness.device.manager.export.DeviceManagerExtKt");
-                        Object companion=managerClass.getDeclaredField("Companion").get(null);
-                        Method getter=managerExt.getDeclaredMethod("getInstance",companionClass);
-                        getter.setAccessible(true);
-                        manager=getter.invoke(null,companion);
-                        if(manager==null)return null;
-                        current=manager.getClass().getMethod("getCurrentDeviceModel");
-                        cachedGetCurrentDeviceModel=current;
-                        cachedDeviceManager=manager;
+                    reader=cachedReader;
+                    if(reader==null) {
+                        reader=TargetResolver.resolveWearableManager(app.getClassLoader());
+                        cachedReader=reader;
                     }
                 }
             }
-            return current.invoke(manager);
+            return reader.getCurrentModel();
         } catch(Throwable ignored) {return null;}
     }
 
