@@ -62,7 +62,7 @@ def parse_market_page(body, package=TARGET):
     """Return a candidate only when the page actually contains target package."""
     visible = html.unescape(re.sub(r"<[^>]*>", "\n", body))
     normalized = re.sub(r"\s+", " ", visible)
-    if re.search(r"(?<![\w.])" + re.escape(package) + r"(?![\w.])", normalized) is None:
+    if re.search(r"包名\s*[:：]?\s*" + re.escape(package) + r"(?![\w.])", normalized) is None:
         return None
     # appID and version are rendered as separate text nodes on the store page.
     id_match = re.search(r"appID\s*[:：]?\s*(\d{1,12})(?!\d)", normalized, re.I)
