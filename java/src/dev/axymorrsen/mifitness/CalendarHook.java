@@ -237,8 +237,7 @@ public final class CalendarHook {
         public Object invoke(Object[] args) throws Throwable {
             Method original=backup;
             if (original==null) return Boolean.FALSE;
-            try {
-                // LSPlant's backup is always static. For instance gates,
+            // LSPlant's backup is always static. For instance gates,
                 // packedArgs[0] is the former receiver, not Method.invoke's receiver.
                 boolean before=Boolean.TRUE.equals(BackupInvoker.call(original,args));
                 if(before || !enabled) return before;
@@ -247,7 +246,6 @@ public final class CalendarHook {
                 if(gate!=2 && supportsCalendar(model))
                     lastCapableModel = new WeakReference<>(model);
                 return GatePolicy.allow(before,true,calendarReady(),supportsCalendar(model),true);
-            }
         }
     }
 }
