@@ -5,7 +5,6 @@ import android.app.Application;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
-import java.lang.reflect.InvocationTargetException;
 import android.content.pm.Signature;
 import java.security.MessageDigest;
 import java.lang.ref.WeakReference;
@@ -239,17 +238,15 @@ public final class CalendarHook {
             Method original=backup;
             if (original==null) return Boolean.FALSE;
             try {
-                Object receiver=(gate==2) ? args[0] : null;
-                Object[] parameters = (gate==2) ? new Object[0] : new Object[]{args[0]};
-                boolean before=Boolean.TRUE.equals(original.invoke(receiver,parameters));
+                // LSPlant's backup is always static. For instance gates,
+                // packedArgs[0] is the former receiver, not Method.invoke's receiver.
+                boolean before=Boolean.TRUE.equals(BackupInvoker.call(original,args));
                 if(before || !enabled) return before;
                 Object model=(gate==2) ? currentWearable() : args[0];
                 if(model==null && gate==2) model=lastCapableModel.get();
                 if(gate!=2 && supportsCalendar(model))
                     lastCapableModel = new WeakReference<>(model);
                 return GatePolicy.allow(before,true,calendarReady(),supportsCalendar(model),true);
-            } catch(InvocationTargetException e) {
-                throw e.getCause();
             }
         }
     }
