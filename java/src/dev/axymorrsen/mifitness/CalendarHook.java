@@ -214,9 +214,9 @@ public final class CalendarHook {
                 if(before || !enabled) return before;
                 Object model=(gate==2) ? currentWearable() : args[0];
                 if(model==null && gate==2) model=lastCapableModel.get();
-                if(gate!=2 && supportsCalendar(model))
-                    lastCapableModel = new WeakReference<>(model);
-                return GatePolicy.allow(before,true,calendarReady(),supportsCalendar(model),true);
+                final boolean capable=supportsCalendar(model);
+                if(gate!=2 && capable) lastCapableModel = new WeakReference<>(model);
+                return GatePolicy.allow(before,true,calendarReady(),capable,true);
         }
     }
 }
