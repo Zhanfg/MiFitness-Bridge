@@ -21,6 +21,8 @@
 #include <atomic>
 #include <fstream>
 #include <sstream>
+#include <mutex>
+#include <unordered_map>
 
 namespace {
 constexpr const char *kTag="MiFitnessBridge";
@@ -176,27 +178,58 @@ void *art_exact(std::string_view name) {
 }
 // Look up full symbol names matching ART prefixes. Validate all ELF boundaries
 // before touching the mapped on-disk section tables. No guessed addresses.
-void *art_prefix(std::string_view prefix) {
-    if(!art || prefix.empty())return nullptr;
+// The ART symbol resolver is consulted repeatedly during initialization.
+// Keep a single bounded read-only ELF mapping and memoize prefix results.
+// These files do not contain user data; no ELF bytes are modified.
+struct ArtSymbolIndex {
+    const unsigned char *base=nullptr;
+    size_t size=0;
+    bool attempted=false;
+    std::unordered_map<std::string,void*> cache;
+    std::mutex lock;
+};
+ArtSymbolIndex symbol_index;
+
+bool prepare_art_symbol_index() {
+    if(symbol_index.attempted)return symbol_index.base!=nullptr;
+    symbol_index.attempted=true;
     std::ifstream maps("/proc/self/maps");
     std::string line,path;
-    while(std::getline(maps,line)){
+    while(std::getline(maps,line)) {
         const size_t pos=line.find("/apex/");
-        if(pos!=std::string::npos && line.find("/libart.so",pos)!=std::string::npos) {
-            path=line.substr(pos);break;
-        }
+        if(pos==std::string::npos || line.find("/libart.so",pos)==std::string::npos)continue;
+        const size_t end=line.find("/libart.so",pos)+strlen("/libart.so");
+        path=line.substr(pos,end-pos);
+        break;
     }
-    if(path.empty())return nullptr;
-    const int fd=open(path.c_str(),O_RDONLY|O_CLOEXEC);
-    if(fd<0)return nullptr;
+    if(path.empty())return false;
+    const int fd=open(path.c_str(),O_RDONLY|O_CLOEXEC|O_NOFOLLOW);
+    if(fd<0)return false;
     struct stat st{};
-    if(fstat(fd,&st)!=0||st.st_size<static_cast<off_t>(sizeof(Elf64_Ehdr))||
-       st.st_size>static_cast<off_t>(256u*1024u*1024u)){close(fd);return nullptr;}
+    if(fstat(fd,&st)!=0 ||
+       st.st_size<static_cast<off_t>(sizeof(Elf64_Ehdr)) ||
+       st.st_size>static_cast<off_t>(256u*1024u*1024u)) {
+        close(fd);
+        return false;
+    }
     const size_t size=static_cast<size_t>(st.st_size);
-    const void *mem=mmap(nullptr,size,PROT_READ,MAP_PRIVATE,fd,0);
+    const void *mapped=mmap(nullptr,size,PROT_READ,MAP_PRIVATE,fd,0);
     close(fd);
-    if(mem==MAP_FAILED)return nullptr;
-    const auto *begin=static_cast<const unsigned char*>(mem);
+    if(mapped==MAP_FAILED)return false;
+    symbol_index.base=static_cast<const unsigned char*>(mapped);
+    symbol_index.size=size;
+    return true;
+}
+
+void *art_prefix(std::string_view prefix) {
+    if(!art || prefix.empty())return nullptr;
+    std::lock_guard<std::mutex> guard(symbol_index.lock);
+    const std::string key(prefix);
+    const auto prev=symbol_index.cache.find(key);
+    if(prev!=symbol_index.cache.end())return prev->second;
+    if(!prepare_art_symbol_index())return nullptr;
+    const unsigned char *begin=symbol_index.base;
+    const size_t size=symbol_index.size;
     auto within=[&](uint64_t off,uint64_t len)->bool {
         return off<=size && len<=size-static_cast<size_t>(off);
     };
@@ -224,14 +257,14 @@ void *art_prefix(std::string_view prefix) {
                 const char *end=static_cast<const char*>(memchr(name,0,remain));
                 if(!end)continue;
                 const std::string_view candidate(name,static_cast<size_t>(end-name));
-                if(candidate.size()<prefix.size()||candidate.substr(0,prefix.size())!=prefix)continue;
+                if(candidate.size()<prefix.size() || candidate.substr(0,prefix.size())!=prefix)continue;
                 result=xdl_sym(art,name,nullptr);
                 if(!result)result=xdl_dsym(art,name,nullptr);
                 if(result)break;
             }
         }
     }
-    munmap(const_cast<void*>(mem),size);
+    symbol_index.cache.emplace(key,result);
     return result;
 }
 
