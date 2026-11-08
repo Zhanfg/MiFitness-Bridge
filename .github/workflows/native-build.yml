@@ -60,6 +60,8 @@ jobs:
           java -cp build/testclasses dev.axymorrsen.mifitness.ApkIntegrityTest
       - name: Host systemization safety tests
         run: python3 -m unittest discover -s tests -p 'test_systemizer.py' -v
+      - name: Host packaged code integrity tests
+        run: python3 -m unittest discover -s tests -p 'test_code_integrity.py' -v
       - name: Compile callback DEX
         shell: bash
         run: |
