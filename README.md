@@ -27,6 +27,7 @@ Experimental integration for **Xiaomi Mi Fitness** `com.mi.health` (versionCode 
 
 - [Architecture](docs/native-zn-architecture.md)
 - [APK source analysis](docs/upstream_sources.md)
+- [Offline APK DEX ABI checker](tools/verify_calendar_abi.py): rejects incompatible candidate signatures before any installer can use them
 - [Android shell metadata probe](tools/MiFitness_GetApps_Probe_v0.4.0.sh)
 - [Pinned dependencies](scripts/fetch-native-deps.sh)
 - [Native C++](native/src/entry.cpp) and [Java callbacks](java/src/dev/axymorrsen/mifitness/CalendarHook.java)
