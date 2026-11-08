@@ -15,21 +15,20 @@ permissions:
   contents: read
 jobs:
   arm64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: android-actions/setup-android@v3
-      - name: Install NDK 27
-        run: yes | sdkmanager --install 'ndk;27.2.12479018'
+      - name: Inspect preinstalled NDK
+        run: test -f "$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" && echo "NDK_HOME=$ANDROID_NDK_HOME"
       - name: Configure
-        run: cmake -S native -B out-native -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$ANDROID_HOME/ndk/27.2.12479018/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28
+        run: cmake -S native -B out-native -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28
       - name: Build
         run: cmake --build out-native --parallel 2
       - name: Inspect and package
         run: |
           set -eu
           file out-native/libmifitness_bridge.so
-          "$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" -D out-native/libmifitness_bridge.so | grep -F zygisk_module_entry
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" -D out-native/libmifitness_bridge.so | grep -F zygisk_module_entry
           for f in root-module/customize.sh root-module/service.sh root-module/action.sh; do sh -n "$f"; done
           mkdir -p stage/zygisk
           cp root-module/module.prop root-module/customize.sh root-module/service.sh root-module/action.sh root-module/bridge.conf stage/
