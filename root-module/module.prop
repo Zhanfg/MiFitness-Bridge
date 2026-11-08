@@ -1,6 +1,6 @@
 id=mifitness_bridge
 name=MiFitness Bridge (Zygisk Next native)
-version=v0.4.0-dev
-versionCode=400
+version=v0.5.0-dev
+versionCode=500
 author=Axymorrsen
-description=SCEME-aware systemless Xiaomi Mi Fitness support + diagnostic C++ Zygisk module; no LSPosed.
+description=SCEME-aware systemless Xiaomi Mi Fitness support + calendar C++ Zygisk module; no LSPosed.
