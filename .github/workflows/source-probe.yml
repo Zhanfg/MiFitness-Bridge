@@ -23,7 +23,6 @@ jobs:
       - name: Offline source parser tests
         run: python3 -m unittest discover -s tests -v
   live-metadata-probe:
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +30,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Query Xiaomi public metadata (no APK download)
-        run: python3 tools/xiaomi_market_probe.py > xiaomi-market-probe.json
+        run: python3 tools/xiaomi_market_probe.py > xiaomi-market-probe.json && cat xiaomi-market-probe.json
       - name: Upload metadata result
         uses: actions/upload-artifact@v4
         with:
