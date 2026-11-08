@@ -15,12 +15,12 @@ fetch_pinned() {
   git -C "$folder" checkout --detach -q "$sha"
   test "$(git -C "$folder" rev-parse HEAD)" = "$sha"
 }
-fetch_pinned "LSPosed/LSPlant" "06bd3412d639d6b0d76fe6c7388066fe44e8963d" "$DEPS/lsplant"
+fetch_pinned "LSPosed/LSPlant" "d8b5d1dbb664abc606644036822e4bb64547edf6" "$DEPS/lsplant"
 git -C "$DEPS/lsplant" submodule update --init --recursive --depth 1 lsplant/src/main/jni/external/dex_builder
 fetch_pinned "LSPosed/Dobby" "c1da0315d7a2069bde2ab432e45d4ab6df91237a" "$DEPS/dobby"
 fetch_pinned "hexhacking/xDL" "1e0b6254165a2ddcbd32f77a371700c69155acf8" "$DEPS/xdl"
 {
-  echo "LSPlant=06bd3412d639d6b0d76fe6c7388066fe44e8963d"
+  echo "LSPlant=d8b5d1dbb664abc606644036822e4bb64547edf6"
   echo "Dobby=c1da0315d7a2069bde2ab432e45d4ab6df91237a"
   echo "xDL=1e0b6254165a2ddcbd32f77a371700c69155acf8"
   printf "DexBuilder="; git -C "$DEPS/lsplant/lsplant/src/main/jni/external/dex_builder" rev-parse HEAD
