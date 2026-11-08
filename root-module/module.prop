@@ -1,0 +1,6 @@
+id=mifitness_bridge
+name=MiFitness Bridge (Zygisk Next native)
+version=v0.5.2-dev
+versionCode=502
+author=Axymorrsen
+description=User-controlled Mi Fitness compatibility guard: Zygisk Next native, observe-first, strict signed APK profile, module integrity and SCEME coexistence.

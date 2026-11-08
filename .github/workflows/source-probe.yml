@@ -1,0 +1,39 @@
+name: Verify Xiaomi market source
+on:
+  push:
+    paths:
+      - 'tools/**'
+      - 'tests/**'
+      - '.github/workflows/source-probe.yml'
+  pull_request:
+    paths:
+      - 'tools/**'
+      - 'tests/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline source parser tests
+        run: python3 -m unittest discover -s tests -v
+  live-metadata-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Query Xiaomi public metadata (no APK download)
+        run: python3 tools/xiaomi_market_probe.py > xiaomi-market-probe.json && cat xiaomi-market-probe.json
+      - name: Upload metadata result
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaomi-market-probe
+          path: xiaomi-market-probe.json
+          retention-days: 7
