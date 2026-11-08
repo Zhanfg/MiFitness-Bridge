@@ -48,7 +48,7 @@ fi
 # Until a verified on-device APK signer is bundled, stage only an exact known
 # single-APK sample verified offline from Mi Fitness 3.59.2.
 expected_sha256=112e603b8342cb134402a6dcabdf3ec16fd5171ec65a1d5f7cb7efd83cb0995d
-if [ "$(printf '%s\\n' "$paths" | sed '/^$/d' | wc -l | tr -d ' ')" != 1 ]; then
+if [ "$(printf '%s\n' "$paths" | sed '/^$/d' | wc -l | tr -d ' ')" != 1 ]; then
   echo split-not-pinned > "$MODPATH/systemize-state.txt"
   ui_print "- Split packages not pinned for systemization; retain normal app"
   exit 0
