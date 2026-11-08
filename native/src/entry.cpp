@@ -29,6 +29,8 @@ constexpr const char *kTarget="com.mi.health";
 constexpr const char *kDevice="com.mi.health:device";
 constexpr size_t kMaxDex=4u*1024u*1024u;
 JavaVM *vm=nullptr;
+jclass activity_thread_class=nullptr;
+jmethodID current_application_id=nullptr;
 std::vector<unsigned char> dex;
 void *art=nullptr;
 std::atomic<bool> ready{false};
@@ -103,6 +105,11 @@ jclass load_class(JNIEnv *env,jobject loader,const char *name) {
     return reinterpret_cast<jclass>(result);
 }
 jobject get_application(JNIEnv *env) {
+    if(activity_thread_class && current_application_id) {
+        jobject app=env->CallStaticObjectMethod(activity_thread_class,current_application_id);
+        clear(env,"cached ActivityThread.currentApplication");
+        return app;
+    }
     jclass cl=env->FindClass("android/app/ActivityThread");
     if(!cl){clear(env,"ActivityThread");return nullptr;}
     jmethodID m=env->GetStaticMethodID(cl,"currentApplication","()Landroid/app/Application;");
@@ -299,13 +306,24 @@ public:
         env_->ReleaseStringUTFChars(args->nice_name,n);
         if(!target_){api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);return;}
         const int dir=api_->getModuleDir();
-        if(dir<0){target_=false;return;}
+        if(dir<0){target_=false;api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);return;}
         const bool cfg=read_config(dir);
         const bool payload=file_read(dir,"classes.dex",&dex);
         close(dir);
         if(!cfg||!payload||!enable_calendar){
             target_=false;dex.clear();api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);return;
         }
+        // Resolve the non-SDK ActivityThread method before application sandboxing.
+        // In post-specialize, use the cached jmethodID; still fail safely if unavailable.
+        jclass activity=env_->FindClass("android/app/ActivityThread");
+        if(activity) {
+            current_application_id=env_->GetStaticMethodID(
+                activity,"currentApplication","()Landroid/app/Application;");
+            if(current_application_id) {
+                activity_thread_class=static_cast<jclass>(env_->NewGlobalRef(activity));
+            } else clear(env_,"pre-specialization ActivityThread.currentApplication");
+            env_->DeleteLocalRef(activity);
+        } else clear(env_,"pre-specialization ActivityThread");
     }
     void postAppSpecialize(const zygisk::AppSpecializeArgs *) override {
         if(target_) {
