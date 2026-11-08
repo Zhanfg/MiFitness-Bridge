@@ -23,6 +23,7 @@
 namespace {
 constexpr const char *kTag="MiFitnessBridge";
 constexpr const char *kTarget="com.mi.health";
+constexpr const char *kDevice="com.mi.health:device";
 constexpr size_t kMaxDex=4u*1024u*1024u;
 JavaVM *vm=nullptr;
 std::vector<unsigned char> dex;
@@ -228,7 +229,7 @@ public:
         if(!api_||!env_||!args||!args->nice_name)return;
         const char *n=env_->GetStringUTFChars(args->nice_name,nullptr);
         if(!n)return;
-        target_ = strcmp(n,kTarget)==0;
+        target_ = strcmp(n,kTarget)==0 || strcmp(n,kDevice)==0;
         env_->ReleaseStringUTFChars(args->nice_name,n);
         if(!target_){api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);return;}
         const int dir=api_->getModuleDir();
@@ -240,7 +241,7 @@ public:
     }
     void postAppSpecialize(const zygisk::AppSpecializeArgs *) override {
         if(target_) {
-            log_msg(ANDROID_LOG_INFO,"Native Zygisk Next attached; initializing calendar bridge");
+            log_msg(ANDROID_LOG_INFO,"Native Zygisk Next attached in app/device process; initializing calendar bridge");
             std::thread(worker).detach();
         }
     }
