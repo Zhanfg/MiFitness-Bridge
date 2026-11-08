@@ -1,7 +1,7 @@
 #!/system/bin/sh
 # Read-only module manager action. Never prints accounts, tokens or health data.
 MODDIR="$(dirname "$0")"
-echo 'MiFitness Bridge v0.5.1-dev / Zygisk Next native status'
+echo 'MiFitness Bridge v0.5.2-dev / Zygisk Next native status'
 if grep -Fxq 'calendar_hook=1' "$MODDIR/bridge.conf" 2>/dev/null; then
   echo 'Mode=calendar-armed (new app processes)'
 elif grep -Fxq 'native_probe=1' "$MODDIR/bridge.conf" 2>/dev/null; then
@@ -46,6 +46,14 @@ for root in /data/adb/modules /data/adb/ksu/modules; do
   [ "$provider" = installed ] && break
 done
 echo "Zygisk Next module inventory=$provider"
+echo 'Compatibility policy: upgrades/downgrades are user-controlled; unsupported APKs pause the bridge hooks'
+if [ -r "$MODDIR/version-guard.txt" ]; then
+  echo 'Last compatibility check:'
+  cat "$MODDIR/version-guard.txt"
+fi
+if [ -r "$MODDIR/boot-status.txt" ]; then
+  grep -E '^(code_integrity|package_profile|hook_action|own_overlay)=' "$MODDIR/boot-status.txt" 2>/dev/null
+fi
 echo 'APK auto-update=disabled until a trusted, compatible official source exists'
 
 if command -v logcat >/dev/null 2>&1; then
