@@ -16,7 +16,7 @@
 #include <cstring>
 #include <string>
 #include <string_view>
-#include <thread>
+#include <pthread.h>
 #include <vector>
 #include <chrono>
 #include <atomic>
@@ -293,6 +293,23 @@ void worker() {
     env->DeleteLocalRef(child);env->DeleteLocalRef(app);
     vm->DetachCurrentThread();
 }
+// pthread_create returns an error code instead of throwing std::system_error.
+// C++ exceptions are disabled for this native Android library.
+void *worker_entry(void *) {
+    worker();
+    return nullptr;
+}
+bool start_worker() {
+    pthread_t thread{};
+    const int error=pthread_create(&thread,nullptr,worker_entry,nullptr);
+    if(error!=0) {
+        __android_log_print(ANDROID_LOG_ERROR,kTag,
+                            "Native background bootstrap unavailable (pthread error=%d)",error);
+        return false;
+    }
+    pthread_detach(thread);
+    return true;
+}
 }
 
 class MiFitnessModule final:public zygisk::ModuleBase {
@@ -328,7 +345,7 @@ public:
     void postAppSpecialize(const zygisk::AppSpecializeArgs *) override {
         if(target_) {
             log_msg(ANDROID_LOG_INFO,"Native Zygisk Next attached in app/device process; initializing calendar bridge");
-            std::thread(worker).detach();
+            start_worker();
         }
     }
     void preServerSpecialize(zygisk::ServerSpecializeArgs *) override {
