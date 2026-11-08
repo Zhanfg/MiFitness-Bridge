@@ -9,6 +9,8 @@
 #include <xdl.h>
 #include <jni.h>
 #include <fcntl.h>
+#include <elf.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <cstring>
@@ -159,9 +161,66 @@ void *art_exact(std::string_view name) {
     void *p=xdl_sym(art,key.c_str(),nullptr);
     return p?p:xdl_dsym(art,key.c_str(),nullptr);
 }
-// LSPlant may request prefix matches for API-variant names. We supply a safe
-// null fallback: no guessed addresses or permissive unresolved symbol offsets.
-void *art_prefix(std::string_view) {return nullptr;}
+// Look up full symbol names matching ART prefixes. Validate all ELF boundaries
+// before touching the mapped on-disk section tables. No guessed addresses.
+void *art_prefix(std::string_view prefix) {
+    if(!art || prefix.empty())return nullptr;
+    std::ifstream maps("/proc/self/maps");
+    std::string line,path;
+    while(std::getline(maps,line)){
+        const size_t pos=line.find("/apex/");
+        if(pos!=std::string::npos && line.find("/libart.so",pos)!=std::string::npos) {
+            path=line.substr(pos);break;
+        }
+    }
+    if(path.empty())return nullptr;
+    const int fd=open(path.c_str(),O_RDONLY|O_CLOEXEC);
+    if(fd<0)return nullptr;
+    struct stat st{};
+    if(fstat(fd,&st)!=0||st.st_size<static_cast<off_t>(sizeof(Elf64_Ehdr))||
+       st.st_size>static_cast<off_t>(256u*1024u*1024u)){close(fd);return nullptr;}
+    const size_t size=static_cast<size_t>(st.st_size);
+    const void *mem=mmap(nullptr,size,PROT_READ,MAP_PRIVATE,fd,0);
+    close(fd);
+    if(mem==MAP_FAILED)return nullptr;
+    const auto *begin=static_cast<const unsigned char*>(mem);
+    auto within=[&](uint64_t off,uint64_t len)->bool {
+        return off<=size && len<=size-static_cast<size_t>(off);
+    };
+    void *result=nullptr;
+    const auto *eh=reinterpret_cast<const Elf64_Ehdr*>(begin);
+    if(memcmp(eh->e_ident,ELFMAG,SELFMAG)==0 &&
+       eh->e_ident[EI_CLASS]==ELFCLASS64 &&
+       eh->e_shentsize==sizeof(Elf64_Shdr) &&
+       eh->e_shnum>0 &&
+       within(eh->e_shoff,static_cast<uint64_t>(eh->e_shnum)*sizeof(Elf64_Shdr))){
+        const auto *sh=reinterpret_cast<const Elf64_Shdr*>(begin+eh->e_shoff);
+        for(unsigned i=0;i<eh->e_shnum&&!result;i++){
+            if((sh[i].sh_type!=SHT_SYMTAB && sh[i].sh_type!=SHT_DYNSYM) ||
+               sh[i].sh_entsize!=sizeof(Elf64_Sym)||sh[i].sh_link>=eh->e_shnum ||
+               !within(sh[i].sh_offset,sh[i].sh_size))continue;
+            const auto &str=sh[sh[i].sh_link];
+            if(str.sh_type!=SHT_STRTAB||!within(str.sh_offset,str.sh_size))continue;
+            const auto *syms=reinterpret_cast<const Elf64_Sym*>(begin+sh[i].sh_offset);
+            const auto *names=reinterpret_cast<const char*>(begin+str.sh_offset);
+            const size_t count=sh[i].sh_size/sizeof(Elf64_Sym);
+            for(size_t j=0;j<count;j++){
+                if(syms[j].st_name>=str.sh_size || syms[j].st_shndx==SHN_UNDEF)continue;
+                const char *name=names+syms[j].st_name;
+                const size_t remain=str.sh_size-syms[j].st_name;
+                const char *end=static_cast<const char*>(memchr(name,0,remain));
+                if(!end)continue;
+                const std::string_view candidate(name,static_cast<size_t>(end-name));
+                if(candidate.size()<prefix.size()||candidate.substr(0,prefix.size())!=prefix)continue;
+                result=xdl_sym(art,name,nullptr);
+                if(!result)result=xdl_dsym(art,name,nullptr);
+                if(result)break;
+            }
+        }
+    }
+    munmap(const_cast<void*>(mem),size);
+    return result;
+}
 
 bool init_art(JNIEnv *env) {
     art=xdl_open("libart.so",XDL_DEFAULT);
