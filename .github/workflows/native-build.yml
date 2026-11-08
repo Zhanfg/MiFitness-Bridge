@@ -83,7 +83,7 @@ jobs:
           cp build/dex/classes.dex build/stage/classes.dex
           cp build/native/libmifitness_bridge.so build/stage/zygisk/arm64-v8a.so
           TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          "$TOOLCHAIN/llvm-objcopy" --only-keep-debug build/stage/zygisk/arm64-v8a.so build/MiFitnessBridge-v0.5.0-arm64.debug
+          "$TOOLCHAIN/llvm-objcopy" --only-keep-debug build/stage/zygisk/arm64-v8a.so build/MiFitnessBridge-v0.5.1-arm64.debug
           "$TOOLCHAIN/llvm-strip" --strip-unneeded build/stage/zygisk/arm64-v8a.so
           "$TOOLCHAIN/llvm-nm" -D build/stage/zygisk/arm64-v8a.so | grep 'zygisk_module_entry'
           test "$(stat -c%s build/stage/zygisk/arm64-v8a.so)" -lt 5000000
@@ -93,19 +93,19 @@ jobs:
             a="${entry%%:*}"; b="${entry##*:}"
             [ ! -f "third_party/$a" ] || cp "third_party/$a" "build/stage/licenses/$b"
           done
-          (cd build/stage && zip -qr ../MiFitnessBridge-v0.5.0-ZN-calendar-experimental.zip .)
-          unzip -l build/MiFitnessBridge-v0.5.0-ZN-calendar-experimental.zip
-          unzip -p build/MiFitnessBridge-v0.5.0-ZN-calendar-experimental.zip module.prop | grep 'version=v0.5.0'
+          (cd build/stage && zip -qr ../MiFitnessBridge-v0.5.1-ZN-observe-first.zip .)
+          unzip -l build/MiFitnessBridge-v0.5.1-ZN-observe-first.zip
+          unzip -p build/MiFitnessBridge-v0.5.1-ZN-observe-first.zip module.prop | grep 'version=v0.5.1'
       - uses: actions/upload-artifact@v4
         with:
-          name: MiFitnessBridge-v0.5.0-ZN-calendar-experimental
-          path: build/MiFitnessBridge-v0.5.0-ZN-calendar-experimental.zip
+          name: MiFitnessBridge-v0.5.1-ZN-observe-first
+          path: build/MiFitnessBridge-v0.5.1-ZN-observe-first.zip
           retention-days: 14
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MiFitnessBridge-v0.5.0-arm64-debug-symbols
-          path: build/MiFitnessBridge-v0.5.0-arm64.debug
+          name: MiFitnessBridge-v0.5.1-arm64-debug-symbols
+          path: build/MiFitnessBridge-v0.5.1-arm64.debug
           retention-days: 14
           if-no-files-found: error
