@@ -55,6 +55,14 @@ public final class CalendarHook {
                 NativeBridge.log(NativeBridge.WARN, "Mi Fitness version/signature mismatch; hooks disabled");
                 return;
             }
+            phase = "apk_integrity";
+            if (!ApkIntegrity.isSinglePackage(app.getApplicationInfo().splitSourceDirs) ||
+                !ApkIntegrity.matchesReviewed(
+                    new java.io.File(app.getApplicationInfo().sourceDir))) {
+                NativeBridge.log(NativeBridge.WARN,
+                    "Mi Fitness APK does not match reviewed 3.59.2 bytes; hooks disabled");
+                return;
+            }
             phase = "target_resolver";
             ClassLoader loader = app.getClassLoader();
             TargetResolver.Gates resolved = TargetResolver.resolveGates(loader);
