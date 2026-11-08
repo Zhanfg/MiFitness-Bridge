@@ -74,6 +74,12 @@ class SystemizerSafetyTest(unittest.TestCase):
         self.assertFalse((self.modpath / "system").exists(),
                          "systemizer must fail closed without writing an overlay")
 
+    def test_packaged_default_is_observe_only(self):
+        config = (ROOT / "root-module" / "bridge.conf").read_text().splitlines()
+        self.assertIn("native_probe=1", config)
+        self.assertIn("calendar_hook=0", config)
+        self.assertIn("fail_on_conflict=1", config)
+
     def test_existing_sceme_system_app_is_preserved(self):
         proc, state = self.run_installer(system=True)
         self.assertEqual(proc.returncode, 0, proc.stderr)
