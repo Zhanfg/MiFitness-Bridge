@@ -304,7 +304,6 @@ class SystemizerSafetyTest(unittest.TestCase):
             ("112e603b8342cb134402a6dcabdf3ec16fd5171ec65a1d5f7cb7efd83cb0995d"
              if pinned_hash else "0"*64) +
             "  %s\\n' \"$1\"\n")
-        )
         env = os.environ.copy()
         env.update({
             "PATH": str(self.bindir) + os.pathsep + env.get("PATH", ""),
