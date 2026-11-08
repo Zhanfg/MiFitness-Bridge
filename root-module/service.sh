@@ -65,6 +65,11 @@ if [ "$check_result" -ne 0 ]; then
   exit 0
 fi
 
+# Inventory other Zygisk modules without inspecting their contents or names.
+if [ -r "$MODDIR/hook-audit.sh" ]; then
+  sh "$MODDIR/hook-audit.sh" >> "$OUT" 2>/dev/null ||
+    echo "injection_inventory=unavailable" >> "$OUT"
+fi
 # User remains free to update, downgrade, or uninstall Mi Fitness.
 # Guard reports compatibility state, pauses only our hooks, and never writes to app data.
 if [ -r "$MODDIR/guard.sh" ]; then
