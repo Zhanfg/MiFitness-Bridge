@@ -1,5 +1,6 @@
 // MiFitness-Bridge native probe: target-scoped Zygisk API (runtime supplied by Zygisk Next).
 // No LSPosed dependency. This milestone installs no ART or JNI hooks.
+#include <sys/types.h>
 #include "zygisk.hpp"
 #include <android/log.h>
 #include <fcntl.h>
