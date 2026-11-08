@@ -13,6 +13,22 @@ Experimental integration for **Xiaomi Mi Fitness** `com.mi.health` (versionCode 
 - **Conflict handling:** if a known competing ART injection engine is visible in the target process maps, calendar hooks fail closed. We do not and cannot revoke third-party hooks' privileges in the same process. No global Build property spoofing, no `system_server` hooks, no persistent polling daemon.
 - **Acquisition:** the Xiaomi store source probe and certificate pin remain available. Official GetApps pages returned HTTP 200 on the tested ColorOS phone **but did not expose `com.mi.health`**, so no verified direct official APK source has been established. APK auto-download and installation are **disabled**, rather than using an untrusted mirror.
 
+## 两阶段启动策略（v0.5 实验性）
+
+初次安装时的 `bridge.conf` 默认配置是：
+
+```ini
+native_probe=1
+calendar_hook=0
+fail_on_conflict=1
+```
+
+因此第一次启动只报告 Zygisk Next 是否进入 `com.mi.health` 或 `com.mi.health:device`，不会初始化 LSPlant/Dobby，也不会修改日历逻辑。只有明确运行无参数 Root Shell 脚本 `root-module/enable-calendar.sh`，且已安装 APK 与经审计的 **3.59.2 SHA-256** 完全一致、设备为 PJZ110 / Android 17 时，后续新进程才启用三个日历 Hook。启用脚本不自动杀死应用或修改任何权限。
+
+出现异常时运行 `root-module/safe-mode.sh`，后续新进程恢复观察模式。已有应用进程必须退出后才会重新读取模块配置。两个脚本都不接触应用数据库、账号、蓝牙配对信息。
+
+这仍只是 **降低首次真机测试风险的分阶段机制**，并不证明 ColorOS 17 的 ART 运行时已兼容，更不能替代真机端到端日历同步测试。
+
 ## 安装与恢复安全说明
 
 - KernelSU 将 `customize.sh` **导入当前安装器 Shell**。所有可跳过的分支必须从函数中 `return`，不得 `exit` 整个安装器。CI 含模拟 source 测试。
