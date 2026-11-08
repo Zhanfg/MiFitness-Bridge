@@ -77,9 +77,9 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          for script in root-module/customize.sh root-module/service.sh root-module/action.sh; do sh -n "$script"; done
+          for script in root-module/customize.sh root-module/service.sh root-module/action.sh root-module/safe-mode.sh; do sh -n "$script"; done
           mkdir -p build/stage/zygisk build/stage/licenses
-          cp root-module/module.prop root-module/customize.sh root-module/action.sh root-module/service.sh root-module/bridge.conf build/stage/
+          cp root-module/module.prop root-module/customize.sh root-module/action.sh root-module/service.sh root-module/safe-mode.sh root-module/bridge.conf build/stage/
           cp build/dex/classes.dex build/stage/classes.dex
           cp build/native/libmifitness_bridge.so build/stage/zygisk/arm64-v8a.so
           TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
@@ -87,7 +87,7 @@ jobs:
           "$TOOLCHAIN/llvm-strip" --strip-unneeded build/stage/zygisk/arm64-v8a.so
           "$TOOLCHAIN/llvm-nm" -D build/stage/zygisk/arm64-v8a.so | grep 'zygisk_module_entry'
           test "$(stat -c%s build/stage/zygisk/arm64-v8a.so)" -lt 5000000
-          chmod 0755 build/stage/customize.sh build/stage/action.sh build/stage/service.sh
+          chmod 0755 build/stage/customize.sh build/stage/action.sh build/stage/service.sh build/stage/safe-mode.sh
           cp build/dependency-versions.txt build/stage/
           for entry in "lsplant/LICENSE:LSPlant-LGPL3" "dobby/LICENSE:Dobby" "xdl/LICENSE:xDL-MIT"; do
             a="${entry%%:*}"; b="${entry##*:}"
