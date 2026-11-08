@@ -10,7 +10,7 @@ CHECKER = ROOT / "root-module" / "check-code.sh"
 ASSETS = (
     "zygisk/arm64-v8a.so", "classes.dex", "module.prop", "customize.sh",
     "service.sh", "guard.sh", "hook-audit.sh", "check-code.sh", "action.sh", "safe-mode.sh",
-    "enable-calendar.sh",
+    "enable-calendar.sh", "compatibility-policy.json",
 )
 
 
