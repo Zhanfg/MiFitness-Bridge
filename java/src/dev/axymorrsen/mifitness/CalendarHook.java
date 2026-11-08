@@ -23,6 +23,8 @@ public final class CalendarHook {
     private static final String PINNED_SIGNER = "c9009d01ebf9f5d0302bc71b2fe9aa9a47a432bba17308a3111b75d7b2149025";
     private static final String APP = "com.mi.health";
     private static final String MODEL = "com.xiaomi.fitness.device.manager.export.WearableDeviceModel";
+    // Verified in classes10.dex: isSupportFeature(DeviceModel, String), not WearableDeviceModel.
+    private static final String FEATURE_MODEL = "com.xiaomi.fitness.device.manager.DeviceModel";
     private static final String CAPABILITY = "com.xiaomi.fitness.device.manager.DeviceModelExtKt";
     private static final String[] GATE_CLASSES = {
         "com.xiaomi.fitness.device.manager.extensions.DeviceModelExtKt",
@@ -63,7 +65,11 @@ public final class CalendarHook {
             ClassLoader loader = app.getClassLoader();
             Class<?> model = loader.loadClass(MODEL);
             Class<?> ext = loader.loadClass(CAPABILITY);
-            Method feature = ext.getDeclaredMethod("isSupportFeature", model, String.class);
+            Method feature = ext.getDeclaredMethod("isSupportFeature", loader.loadClass(FEATURE_MODEL), String.class);
+            if (feature.getReturnType()!=boolean.class || !Modifier.isStatic(feature.getModifiers())) {
+                NativeBridge.log(NativeBridge.ERROR, "Feature predicate ABI mismatch; hooks disabled");
+                return;
+            }
             feature.setAccessible(true);
             Method[] methods = new Method[3];
             for (int i=0;i<methods.length;i++) {
