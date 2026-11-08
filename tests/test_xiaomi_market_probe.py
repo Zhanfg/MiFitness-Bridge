@@ -17,6 +17,9 @@ class MarketProbeTests(unittest.TestCase):
     def test_substring_not_identity(self):
         self.assertIsNone(parse_market_page("appID 1234567 com.mi.health.malicious"))
 
+    def test_package_name_must_be_field_not_random_text(self):
+        self.assertIsNone(parse_market_page("<p>appID 12345</p><p>suggested: com.mi.health</p><p>包名 com.xiaomi.wearable</p>"))
+
     def test_maintenance_blocks_candidate(self):
         page = "<p>appID 1234567</p><p>包名 com.mi.health</p><p>维护中</p>"
         self.assertTrue(parse_market_page(page)["maintenance"])
