@@ -354,7 +354,8 @@ public:
         if(!api_||!env_||!args||!args->nice_name)return;
         const char *n=env_->GetStringUTFChars(args->nice_name,nullptr);
         if(!n)return;
-        target_ = strcmp(n,kTarget)==0 || strcmp(n,kDevice)==0;
+        is_device_=strcmp(n,kDevice)==0;
+        target_ = strcmp(n,kTarget)==0 || is_device_;
         env_->ReleaseStringUTFChars(args->nice_name,n);
         if(!target_){api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);return;}
         const int dir=api_->getModuleDir();
@@ -396,12 +397,14 @@ public:
     void postAppSpecialize(const zygisk::AppSpecializeArgs *) override {
         if(!target_)return;
         if(probe_only_) {
-            log_msg(ANDROID_LOG_INFO,
-                "Native Zygisk Next attached (observe-only); ART hooks disabled");
+            log_msg(ANDROID_LOG_INFO,is_device_
+                ? "ZN observe-only: com.mi.health:device attached; ART hooks disabled"
+                : "ZN observe-only: com.mi.health attached; ART hooks disabled");
             return;
         }
-        log_msg(ANDROID_LOG_INFO,
-            "Native Zygisk Next attached in app/device process; initializing calendar bridge");
+        log_msg(ANDROID_LOG_INFO,is_device_
+            ? "ZN active: com.mi.health:device attached; initializing calendar bridge"
+            : "ZN active: com.mi.health attached; initializing calendar bridge");
         start_worker();
     }
     void preServerSpecialize(zygisk::ServerSpecializeArgs *) override {
@@ -412,5 +415,6 @@ private:
     JNIEnv *env_=nullptr;
     bool target_=false;
     bool probe_only_=false;
+    bool is_device_=false;
 };
 REGISTER_ZYGISK_MODULE(MiFitnessModule)
