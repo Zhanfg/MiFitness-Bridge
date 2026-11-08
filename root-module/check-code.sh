@@ -9,7 +9,7 @@ if [ ! -r "$MODDIR/code-integrity.sha256" ] ||
   echo "code_integrity=unavailable"
   exit 2
 fi
-files='zygisk/arm64-v8a.so classes.dex module.prop customize.sh service.sh guard.sh hook-audit.sh check-code.sh action.sh safe-mode.sh enable-calendar.sh'
+files='zygisk/arm64-v8a.so classes.dex module.prop customize.sh service.sh guard.sh hook-audit.sh check-code.sh action.sh safe-mode.sh enable-calendar.sh compatibility-policy.json'
 manifest="$MODDIR/code-integrity.sha256"
 for file in $files; do
   expected="$(awk -v path="$file" '$2==path {count++; h=$1} END {if(count==1) print h}' "$manifest")"
