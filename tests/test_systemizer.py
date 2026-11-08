@@ -186,5 +186,36 @@ class SystemizerSafetyTest(unittest.TestCase):
 
 
 
+    def test_sourced_kernelsu_installer_continues_after_safe_skip(self):
+        # KernelSU uses '. customize.sh'; 'exit 0' here would kill update-binary.
+        marker = self.dir / "manager-resumed"
+        harness = self.dir / "manager-installer.sh"
+        harness.write_text(
+            '#!/bin/sh\n'
+            '. "' + str(SCRIPT) + '"\n'
+            'printf ok > "' + str(marker) + '"\n'
+        )
+        proc, state = self.run_installer(system=True, script=harness)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(state, "existing-system")
+        self.assertEqual(marker.read_text(), "ok")
+        self.assert_no_system_mount()
+
+    def test_sourced_kernelsu_installer_continues_when_app_absent(self):
+        marker = self.dir / "manager-resumed"
+        harness = self.dir / "manager-installer.sh"
+        harness.write_text(
+            '#!/bin/sh\n'
+            '. "' + str(SCRIPT) + '"\n'
+            'printf ok > "' + str(marker) + '"\n'
+        )
+        proc, state = self.run_installer(installed=False, script=harness)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(state, "app-absent")
+        self.assertEqual(marker.read_text(), "ok")
+        self.assert_no_system_mount()
+
+
+
 if __name__ == "__main__":
     unittest.main()
