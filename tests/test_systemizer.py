@@ -116,6 +116,31 @@ class SystemizerSafetyTest(unittest.TestCase):
         self.assert_no_system_mount()
 
 
+    def test_selinux_context_failure_removes_overlay(self):
+        # Entirely synthetic local files and command stubs; never writes /system.
+        installed_dir = self.dir / "data" / "app" / "com.mi.health-test"
+        installed_dir.mkdir(parents=True)
+        apk = installed_dir / "base.apk"
+        apk.write_bytes(b"SYNTHETIC TEST APK")
+        script = self.dir / "sandboxed-context-test.sh"
+        script.write_text(
+            SCRIPT.read_text().replace(
+                "/data/app/*.apk",
+                str(self.dir / "data" / "app" / "*.apk")
+            )
+        )
+        self.write_tool(
+            "sha256sum",
+            "#!/bin/sh\nprintf '112e603b8342cb134402a6dcabdf3ec16fd5171ec65a1d5f7cb7efd83cb0995d  %s\\n' \"$1\"\n"
+        )
+        self.write_tool("chcon", "#!/bin/sh\nexit 1\n")
+        proc, state = self.run_installer(
+            paths="package:" + str(apk), script=script
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(state, "context-failed")
+        self.assert_no_system_mount()
+
     def test_single_pinned_apk_copy_path_in_sandbox(self):
         # Mechanical staging test ONLY. All paths and SHA output are mocked.
         # This does not establish authenticity of any real APK.
