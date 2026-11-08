@@ -30,9 +30,10 @@ jobs:
           set -eu
           file out-native/libmifitness_bridge.so
           "$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" -D out-native/libmifitness_bridge.so | grep -F zygisk_module_entry
-          sh -n root-module/customize.sh root-module/service.sh root-module/action.sh
+          for f in root-module/customize.sh root-module/service.sh root-module/action.sh; do sh -n "$f"; done
           mkdir -p stage/zygisk
           cp root-module/module.prop root-module/customize.sh root-module/service.sh root-module/action.sh root-module/bridge.conf stage/
+          chmod 0755 stage/customize.sh stage/service.sh stage/action.sh
           cp out-native/libmifitness_bridge.so stage/zygisk/arm64-v8a.so
           (cd stage && zip -qr ../MiFitnessBridge-v0.4.0-ZN-diagnostic.zip .)
           unzip -l MiFitnessBridge-v0.4.0-ZN-diagnostic.zip
