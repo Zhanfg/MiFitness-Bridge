@@ -28,6 +28,8 @@ class SystemizerSafetyTest(unittest.TestCase):
         self.write_tool(
             "getprop", '#!/bin/sh\nprintf "%s\\n" "arm64-v8a"\n'
         )
+        self.write_tool("chown", "#!/bin/sh\nexit 0\n")
+        self.write_tool("chcon", "#!/bin/sh\nexit 0\n")
         self.write_tool(
             "ui_print", '#!/bin/sh\nexit 0\n'
         )
