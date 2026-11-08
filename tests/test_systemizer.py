@@ -140,5 +140,51 @@ class SystemizerSafetyTest(unittest.TestCase):
         self.assertEqual(result.read_bytes(), apk.read_bytes())
 
 
+    def run_boot_verifier(self, state, version):
+        service_path = self.modpath / "service.sh"
+        service_path.write_text((ROOT / "root-module" / "service.sh").read_text())
+        (self.modpath / "systemize-state.txt").write_text(state)
+        # No sleeping, actual root, devices, or package manager access.
+        self.write_tool(
+            "getprop",
+            '#!/bin/sh\nif [ "$1" = "sys.boot_completed" ]; then echo 1; '
+            'else echo arm64-v8a; fi\n'
+        )
+        env = os.environ.copy()
+        env.update({
+            "PATH": str(self.bindir) + os.pathsep + env.get("PATH", ""),
+            "MOCK_VERSION": version,
+            "MOCK_ALL_PACKAGES": "package:com.mi.health",
+            "MOCK_SYSTEM_PACKAGES": "package:com.mi.health",
+            "MOCK_PM_PATH": "",
+        })
+        proc = subprocess.run(
+            ["sh", str(service_path)], env=env, capture_output=True,
+            text=True, check=False, timeout=10
+        )
+        output = (self.modpath / "boot-status.txt").read_text()
+        return proc, output
+
+    def test_boot_version_drift_disables_own_overlay_at_next_boot(self):
+        proc, report = self.run_boot_verifier("staged-reboot-required", "359009")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("app_version_profile=mismatch_or_unavailable", report)
+        self.assertIn("module_action=disabled_on_next_boot_due_to_version_drift", report)
+        self.assertTrue((self.modpath / "disable").is_file())
+
+    def test_boot_unchanged_baseline_keeps_own_overlay(self):
+        proc, report = self.run_boot_verifier("staged-reboot-required", "359002")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("app_version_profile=359002_verified", report)
+        self.assertFalse((self.modpath / "disable").exists())
+
+    def test_boot_foreign_sceme_overlay_is_never_disabled(self):
+        proc, report = self.run_boot_verifier("existing-system", "359009")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("app_version_profile=mismatch_or_unavailable", report)
+        self.assertFalse((self.modpath / "disable").exists())
+
+
+
 if __name__ == "__main__":
     unittest.main()
