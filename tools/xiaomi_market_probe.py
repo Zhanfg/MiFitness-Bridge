@@ -114,7 +114,7 @@ def stage_candidate(url, output):
         try:
             with checked_open(url) as res:
                 first = res.read(4)
-                if first not in (b"PK\\x03\\x04", b"PK\\x05\\x06", b"PK\\x07\\x08"):
+                if first not in (bytes((80,75,3,4)), bytes((80,75,5,6)), bytes((80,75,7,8))):
                     raise ValueError("response is not an APK/ZIP (may be HTML maintenance page)")
                 tmp.write(first)
                 length = len(first)
@@ -147,7 +147,9 @@ def verify_apk(path, minimum_version):
     signers = re.findall(r"Signer #\d+ certificate SHA-256 digest:\s*([0-9a-fA-F:]+)", result.stdout)
     if not signers or any(x.replace(":", "").lower() != PINNED_CERT_SHA256 for x in signers):
         raise ValueError("APK signing certificate is not the trusted baseline signer")
-    return {"package": TARGET, "version_code": version_code, "sha256": hashlib.file_digest(open(path, "rb"), "sha256").hexdigest()}
+    with open(path, "rb") as verified_file:
+        digest = hashlib.file_digest(verified_file, "sha256").hexdigest()
+    return {"package": TARGET, "version_code": version_code, "sha256": digest}
 
 def main():
     ap = argparse.ArgumentParser(description="Probe legacy Xiaomi market for com.mi.health (fail closed)")
