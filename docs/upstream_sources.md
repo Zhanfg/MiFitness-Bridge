@@ -45,3 +45,11 @@ python3 tools/xiaomi_market_probe.py --download /tmp/com.mi.health.candidate.apk
 ```
 
 Default operation retrieves metadata only and prints JSON. When a Xiaomi entry cannot be verified, it reports no candidate. An opt-in APK download is **staged**, checked and never installed automatically.
+
+## Newly identified 2026 options (verified research references)
+
+- [ZSXB2468 小米应用商店 APK 下载](https://greasyfork.org/zh-CN/scripts/593509-%E5%B0%8F%E7%B1%B3%E5%BA%94%E7%94%A8%E5%95%86%E5%BA%97-apk-%E4%B8%8B%E8%BD%BD) (MIT, Aug 29 2026) reconstructs the mobile GetApps download path using the page's **interactive captcha**. This may restore user-mediated downloads from official infrastructure, **not** trustworthy fully unattended installation. Do not bypass or solve verification challenges automatically. We have not verified it against `com.mi.health`.
+- [MiaM1ku/Miband-OPlusBridge](https://github.com/MiaM1ku/Miband-OPlusBridge) documents ColorOS Device Space, OPPO Health and Xiaomi Smart Band **10 Pro** integration. It uses **libxposed API 102** and is therefore **not** directly reusable as our required Zygisk-Next-native runtime. Useful for understanding device/ColorOS interface boundaries. Independently audit license and avoid importing third-party keys, user data or device pairing credentials.
+- [batareya16/MiWearBridge](https://github.com/batareya16/MiWearBridge) provides watch-interconnect research, but depends on Xposed and may target `com.xiaomi.wearable` instead of CN `com.mi.health`; never silently equate their APIs.
+
+The APK source remains an open engineering gate: **an HTTP 200 Xiaomi Store web page without target package metadata does not authorize guessing an appId, downloading an unvetted archive or enabling unattended `pm install`.**
