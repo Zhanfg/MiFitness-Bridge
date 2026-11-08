@@ -44,6 +44,27 @@ if [ -z "$paths" ]; then
   ui_print "- pm path failed; no unsafe path guessing"
   exit 0
 fi
+# An app-supplied versionCode is not sufficient for safe systemization.
+# Until a verified on-device APK signer is bundled, stage only an exact known
+# single-APK sample verified offline from Mi Fitness 3.59.2.
+expected_sha256=112e603b8342cb134402a6dcabdf3ec16fd5171ec65a1d5f7cb7efd83cb0995d
+if [ "$(printf '%s\\n' "$paths" | sed '/^$/d' | wc -l | tr -d ' ')" != 1 ]; then
+  echo split-not-pinned > "$MODPATH/systemize-state.txt"
+  ui_print "- Split packages not pinned for systemization; retain normal app"
+  exit 0
+fi
+installed_apk="$paths"
+if [ ! -r "$installed_apk" ] || ! command -v sha256sum >/dev/null 2>&1; then
+  echo hash-unavailable > "$MODPATH/systemize-state.txt"
+  ui_print "- Cannot verify source APK SHA-256; no mount"
+  exit 0
+fi
+actual_sha256="$(sha256sum "$installed_apk" 2>/dev/null | awk '{print $1}')"
+if [ "$actual_sha256" != "$expected_sha256" ]; then
+  echo hash-untrusted > "$MODPATH/systemize-state.txt"
+  ui_print "- APK bytes differ from trusted 3.59.2 sample; no mount"
+  exit 0
+fi
 dest="$MODPATH/system/app/MiFitnessBridge"
 mkdir -p "$dest" || abort "Cannot stage APK directory"
 count=0; base=0; error=0
