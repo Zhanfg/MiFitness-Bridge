@@ -1,6 +1,6 @@
 id=mifitness_bridge
 name=MiFitness Bridge (Zygisk Next native)
-version=v0.5.1-dev
-versionCode=501
+version=v0.5.2-dev
+versionCode=502
 author=Axymorrsen
-description=Two-stage Zygisk Next native integration for com.mi.health; observe-only by default, guarded calendar activation, SCEME-aware.
+description=User-controlled Mi Fitness compatibility guard: Zygisk Next native, observe-first, strict signed APK profile, module integrity and SCEME coexistence.
