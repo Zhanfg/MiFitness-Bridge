@@ -18,7 +18,6 @@
 #include <string_view>
 #include <pthread.h>
 #include <vector>
-#include <chrono>
 #include <atomic>
 #include <fstream>
 #include <sstream>
@@ -265,7 +264,7 @@ void worker() {
     for(int i=0;i<200;i++){
         app=get_application(env);
         if(app)break;
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        usleep(50 * 1000);
     }
     if(!app){log_msg(ANDROID_LOG_ERROR,"Target Application did not initialize");vm->DetachCurrentThread();return;}
     if(conflicting_runtime()){
