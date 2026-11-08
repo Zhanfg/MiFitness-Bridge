@@ -83,8 +83,8 @@ mifitness_customize() {
     chmod 0644 "$dest/$name"
     count=$((count+1))
   done <<EOF_APKS
-  $paths
-  EOF_APKS
+$paths
+EOF_APKS
   if [ "$error" -ne 0 ] || [ "$count" -eq 0 ]; then
     rm -rf "$MODPATH/system"
     echo stage-failed > "$MODPATH/systemize-state.txt"
