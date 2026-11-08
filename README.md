@@ -13,6 +13,17 @@ Experimental integration for **Xiaomi Mi Fitness** `com.mi.health` (versionCode 
 - **Conflict handling:** if a known competing ART injection engine is visible in the target process maps, calendar hooks fail closed. We do not and cannot revoke third-party hooks' privileges in the same process. No global Build property spoofing, no `system_server` hooks, no persistent polling daemon.
 - **Acquisition:** the Xiaomi store source probe and certificate pin remain available. Official GetApps pages returned HTTP 200 on the tested ColorOS phone **but did not expose `com.mi.health`**, so no verified direct official APK source has been established. APK auto-download and installation are **disabled**, rather than using an untrusted mirror.
 
+## 安装与恢复安全说明
+
+- KernelSU 将 `customize.sh` **导入当前安装器 Shell**。所有可跳过的分支必须从函数中 `return`，不得 `exit` 整个安装器。CI 含模拟 source 测试。
+- KernelSU 默认在执行 `customize.sh` **之前**完成权限与 SELinux 标记。因此当脚本创建新的 `system/app` 暂存文件时，必须重新执行属主、目录权限及 `system_file` 上下文设置；任何一步失败立即清理暂存文件。
+- 优先保留 SCEME。仅对字节完全匹配的 3.59.2 单 APK 考虑系统化；未知版本、拆分包、缺少挂载条件或缺少上下文工具时拒绝修改。
+- 若本模块暂存了 APK，开机后发现版本不再匹配，将写入本模块的 `disable` 标记，**下次重启**停用；不会擅自重启、卸载或清除应用。
+- `root-module/safe-mode.sh` 是无需参数的 Root Shell 退出方案，只将 `calendar_hook` 置为 0；下次目标应用启动生效，不自动杀死应用进程，也不影响账号与手环数据。
+- 原生启动线程使用 `pthread_create` 返回码检查；ART 符号解析的只读 ELF 映射及前缀结果在进程内复用，降低重复符号扫描开销。性能效果仍需实机基准测试。
+
+KernelSU 安装器参考：https://github.com/tiann/KernelSU/blob/main/userspace/ksud/src/installer.sh ，模块规范：https://github.com/tiann/KernelSU/blob/main/website/docs/guide/module.md 。
+
 ## Build/test gates
 
 1. Run [native C++ + Java calendar bridge CI](.github/workflows/native-build.yml) with pinned LSPlant/Dobby/xDL dependencies, compile callback DEX, verify exported Zygisk symbol and ZIP contents.
