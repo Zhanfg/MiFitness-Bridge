@@ -36,6 +36,7 @@ std::vector<unsigned char> dex;
 void *art=nullptr;
 std::atomic<bool> ready{false};
 bool enable_calendar=false;
+bool enable_probe=false;
 bool fail_on_conflict=true;
 
 void log_msg(int level,const char *text) {
@@ -73,11 +74,13 @@ bool read_config(int dir) {
     buf[n]=0;
     std::string str(buf,static_cast<size_t>(n));
     enable_calendar=false;
+    enable_probe=false;
     fail_on_conflict=true;
     std::istringstream stream(str);
     std::string line;
     while(std::getline(stream,line)) {
         if(line=="calendar_hook=1")enable_calendar=true;
+        if(line=="native_probe=1")enable_probe=true;
         if(line=="fail_on_conflict=0")fail_on_conflict=false;
     }
     return true;
@@ -357,10 +360,26 @@ public:
         const int dir=api_->getModuleDir();
         if(dir<0){target_=false;api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);return;}
         const bool cfg=read_config(dir);
+        // Observe-only mode never allocates or parses callback DEX and never initializes ART.
+        if(!cfg || (!enable_calendar && !enable_probe)) {
+            close(dir);
+            target_=false;
+            api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
+            return;
+        }
+        if(!enable_calendar && enable_probe) {
+            close(dir);
+            probe_only_=true;
+            api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
+            return;
+        }
         const bool payload=file_read(dir,"classes.dex",&dex);
         close(dir);
-        if(!cfg||!payload||!enable_calendar){
-            target_=false;dex.clear();api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);return;
+        if(!payload) {
+            target_=false;
+            dex.clear();
+            api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
+            return;
         }
         // Resolve the non-SDK ActivityThread method before application sandboxing.
         // In post-specialize, use the cached jmethodID; still fail safely if unavailable.
@@ -375,10 +394,15 @@ public:
         } else clear(env_,"pre-specialization ActivityThread");
     }
     void postAppSpecialize(const zygisk::AppSpecializeArgs *) override {
-        if(target_) {
-            log_msg(ANDROID_LOG_INFO,"Native Zygisk Next attached in app/device process; initializing calendar bridge");
-            start_worker();
+        if(!target_)return;
+        if(probe_only_) {
+            log_msg(ANDROID_LOG_INFO,
+                "Native Zygisk Next attached (observe-only); ART hooks disabled");
+            return;
         }
+        log_msg(ANDROID_LOG_INFO,
+            "Native Zygisk Next attached in app/device process; initializing calendar bridge");
+        start_worker();
     }
     void preServerSpecialize(zygisk::ServerSpecializeArgs *) override {
         if(api_)api_->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
@@ -387,5 +411,6 @@ private:
     zygisk::Api *api_=nullptr;
     JNIEnv *env_=nullptr;
     bool target_=false;
+    bool probe_only_=false;
 };
 REGISTER_ZYGISK_MODULE(MiFitnessModule)
