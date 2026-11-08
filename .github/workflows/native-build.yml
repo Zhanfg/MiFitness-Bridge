@@ -95,7 +95,7 @@ jobs:
           set -euxo pipefail
           for script in root-module/customize.sh root-module/service.sh root-module/action.sh root-module/safe-mode.sh root-module/enable-calendar.sh root-module/guard.sh root-module/hook-audit.sh root-module/check-code.sh; do sh -n "$script"; done
           mkdir -p build/stage/zygisk build/stage/licenses
-          cp root-module/module.prop root-module/customize.sh root-module/action.sh root-module/service.sh root-module/safe-mode.sh root-module/enable-calendar.sh root-module/guard.sh root-module/hook-audit.sh root-module/check-code.sh root-module/bridge.conf build/stage/
+          cp root-module/module.prop root-module/customize.sh root-module/action.sh root-module/service.sh root-module/safe-mode.sh root-module/enable-calendar.sh root-module/guard.sh root-module/hook-audit.sh root-module/check-code.sh root-module/compatibility-policy.json root-module/bridge.conf build/stage/
           cp build/dex/classes.dex build/stage/classes.dex
           cp build/native/libmifitness_bridge.so build/stage/zygisk/arm64-v8a.so
           TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
@@ -111,16 +111,19 @@ jobs:
           done
           (cd build/stage && sha256sum \
             zygisk/arm64-v8a.so classes.dex module.prop customize.sh service.sh \
-            guard.sh hook-audit.sh check-code.sh action.sh safe-mode.sh enable-calendar.sh \
+            guard.sh hook-audit.sh check-code.sh action.sh safe-mode.sh enable-calendar.sh compatibility-policy.json \
             > code-integrity.sha256)
           (cd build/stage && sh ./check-code.sh | grep -Fx 'code_integrity=matches_packaged_manifest')
           (cd build/stage && zip -qr ../MiFitnessBridge-v0.5.2-ZN-integrity-guard.zip .)
+          (cd build && sha256sum MiFitnessBridge-v0.5.2-ZN-integrity-guard.zip > MiFitnessBridge-v0.5.2-ZN-integrity-guard.zip.sha256)
           unzip -l build/MiFitnessBridge-v0.5.2-ZN-integrity-guard.zip
           unzip -p build/MiFitnessBridge-v0.5.2-ZN-integrity-guard.zip module.prop | grep 'version=v0.5.2'
       - uses: actions/upload-artifact@v4
         with:
           name: MiFitnessBridge-v0.5.2-ZN-integrity-guard
-          path: build/MiFitnessBridge-v0.5.2-ZN-integrity-guard.zip
+          path: |
+            build/MiFitnessBridge-v0.5.2-ZN-integrity-guard.zip
+            build/MiFitnessBridge-v0.5.2-ZN-integrity-guard.zip.sha256
           retention-days: 14
           if-no-files-found: error
 
