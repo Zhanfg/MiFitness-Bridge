@@ -46,8 +46,13 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p build/testclasses
-          javac --release 8 -d build/testclasses java/src/dev/axymorrsen/mifitness/GatePolicy.java java/tests/dev/axymorrsen/mifitness/GatePolicyTest.java
+          javac --release 8 -d build/testclasses \
+            java/src/dev/axymorrsen/mifitness/GatePolicy.java \
+            java/src/dev/axymorrsen/mifitness/BackupInvoker.java \
+            java/tests/dev/axymorrsen/mifitness/GatePolicyTest.java \
+            java/tests/dev/axymorrsen/mifitness/BackupInvokerTest.java
           java -cp build/testclasses dev.axymorrsen.mifitness.GatePolicyTest
+          java -cp build/testclasses dev.axymorrsen.mifitness.BackupInvokerTest
       - name: Compile callback DEX
         shell: bash
         run: |
