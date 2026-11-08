@@ -101,6 +101,17 @@ EOF_APKS
     ui_print "- Unknown APK split layout; disabled mount"
     return 0
   fi
+  # KernelSU applies default ownership and SELinux labels BEFORE sourcing
+  # customize.sh. Files created above must be relabeled explicitly.
+  if ! command -v chcon >/dev/null 2>&1 ||
+     ! chown -R 0:0 "$MODPATH/system" ||
+     ! chmod 0755 "$MODPATH/system" "$MODPATH/system/app" "$dest" ||
+     ! chcon -R u:object_r:system_file:s0 "$MODPATH/system"; then
+    rm -rf "$MODPATH/system"
+    echo context-failed > "$MODPATH/systemize-state.txt"
+    ui_print "- Could not apply system_file context; systemization skipped"
+    return 0
+  fi
   echo staged-reboot-required > "$MODPATH/systemize-state.txt"
   ui_print "- Staged $count APK(s) to system/app only. Requires reboot and mount provider."
 }
