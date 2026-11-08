@@ -1,6 +1,6 @@
 # Zygisk Next 原生架构
 
-版本：v0.5.0-dev（实验性，尚未通过真机功能验证）
+版本：v0.5.1-dev（实验性，尚未通过真机功能验证）
 
 ## 运行机制
 
@@ -11,6 +11,7 @@
 
 ## 原生功能链
 
+0. **默认观察模式**：`bridge.conf` 中 `native_probe=1`、`calendar_hook=0`，两个目标进程只记录 ZN 加载信息并卸载本模块库；不会初始化 ART Hook。确认后，Root Shell 可运行无参数 `root-module/enable-calendar.sh`，经 3.59.2 APK 精确哈希与机型校验才开启下一次进程启动的 Hook；`root-module/safe-mode.sh` 可退回观察模式。
 1. ZN 调用 `preAppSpecialize`，只允许上面的两个应用进程。读取 `bridge.conf` 和 `classes.dex`，缓存 `ActivityThread.currentApplication` JNI 方法引用。
 2. `postAppSpecialize` 在目标进程内启动一次有上限的应用初始化等待；其他进程自动卸载模块库。
 3. 通过 `InMemoryDexClassLoader` 加载项目自己的轻量 Java 回调，不修改小米 APK。
