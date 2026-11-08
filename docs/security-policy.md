@@ -45,3 +45,13 @@ Until such a feature is implemented, the module **cannot restore** deleted data.
 ## Security limits
 
 The Root owner controls the device and can change binaries, injection modules, SELinux states, app files and data. SHA-256 manifests are useful for accidental corruption or unsophisticated modifications but are **not a hardware-backed authenticated trust root**. The only sensible high-confidence security boundary against competing Root code is to avoid placing secrets or health data in the bridge, and to keep the bridge narrowly scoped and fail closed.
+
+## Machine-readable declaration and reproducibility
+
+The packaged [`compatibility-policy.json`](../root-module/compatibility-policy.json) publishes the exact package/version/certificate/content baseline and explicitly states `block_package_manager_operations=false`, `root_resistant=false` and `app_private_data_backup=not_performed`. This is a declaration for users and cooperating tools, **not** a platform-enforced lock.
+
+On CI, `code-integrity.sha256` is generated after compiling the native library, stripping symbols and staging all files. A boot-time verifier checks native, DEX, installer/service scripts and the policy. A standalone ZIP SHA-256 is also published alongside the build archive so users can compare its bytes against the GitHub Actions output.
+
+The read-only `hook-audit.sh` counts other enabled Zygisk modules with a payload on disk, but neither logs their names nor asserts those modules inject this app. The count is **not** a reliable indicator of hostile hooks, including modules loaded dynamically or renamed.
+
+None of these measures encrypt Xiaomi data, protect a root owner from themselves, or recover deleted databases. In particular, SHA-256 with a replaceable local manifest cannot provide malicious-Root-proof integrity.
