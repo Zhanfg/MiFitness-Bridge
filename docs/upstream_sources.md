@@ -53,3 +53,15 @@ Default operation retrieves metadata only and prints JSON. When a Xiaomi entry c
 - [batareya16/MiWearBridge](https://github.com/batareya16/MiWearBridge) provides watch-interconnect research, but depends on Xposed and may target `com.xiaomi.wearable` instead of CN `com.mi.health`; never silently equate their APIs.
 
 The APK source remains an open engineering gate: **an HTTP 200 Xiaomi Store web page without target package metadata does not authorize guessing an appId, downloading an unvetted archive or enabling unattended `pm install`.**
+
+## Offline ABI gate for future APK releases
+
+`tools/verify_calendar_abi.py` parses local DEX method definitions without using network access. It compares five exact Mi Fitness 3.59.2 signatures (three feature gates, `isSupportFeature(DeviceModel,String)` and the `WearableDeviceManager$Companion` factory). Run on the **developer's machine** with a candidate APK:
+
+```sh
+python3 tools/verify_calendar_abi.py /path/to/verified-com.mi.health.apk
+```
+
+This tool writes only a JSON summary to stdout. It never extracts a proprietary DEX to the repository or uploads the candidate. The script rejects malformed DEX files, missing methods and changes to the static/instance ABI. A passing ABI test **does not** prove the caller semantics, signature trust, installed package identity or actual functionality. `aapt` and `apksigner` remain mandatory before considering an APK update.
+
+The experimental `xiaomi_market_probe.py --download` code now **requires**: exact package `com.mi.health`, trusted Xiaomi signing certificate, `versionCode=359002` and a matching DEX ABI. It refuses versions above 359002 until a separate method/behavior review is completed. Do not interpret this as a verified latest-version update channel.
