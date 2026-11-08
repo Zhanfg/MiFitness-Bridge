@@ -17,10 +17,11 @@ fetch_pinned() {
 }
 fetch_pinned "LSPosed/LSPlant" "d8b5d1dbb664abc606644036822e4bb64547edf6" "$DEPS/lsplant"
 git -C "$DEPS/lsplant" submodule update --init --recursive --depth 1 lsplant/src/main/jni/external/dex_builder
+python3 "$ROOT/scripts/patch-lsplant-unhook.py" "$DEPS/lsplant/lsplant/src/main/jni/lsplant.cc"
 fetch_pinned "LSPosed/Dobby" "c1da0315d7a2069bde2ab432e45d4ab6df91237a" "$DEPS/dobby"
 fetch_pinned "hexhacking/xDL" "1e0b6254165a2ddcbd32f77a371700c69155acf8" "$DEPS/xdl"
 {
-  echo "LSPlant=d8b5d1dbb664abc606644036822e4bb64547edf6"
+  echo "LSPlant=d8b5d1dbb664abc606644036822e4bb64547edf6+UnHook-06bd3412-backport"
   echo "Dobby=c1da0315d7a2069bde2ab432e45d4ab6df91237a"
   echo "xDL=1e0b6254165a2ddcbd32f77a371700c69155acf8"
   printf "DexBuilder="; git -C "$DEPS/lsplant/lsplant/src/main/jni/external/dex_builder" rev-parse HEAD
