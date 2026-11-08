@@ -1,8 +1,0 @@
-cmake_minimum_required(VERSION 3.22)
-project(mifitness_bridge LANGUAGES CXX)
-add_library(mifitness_bridge SHARED src/entry.cpp)
-target_compile_features(mifitness_bridge PRIVATE cxx_std_17)
-target_include_directories(mifitness_bridge PRIVATE include)
-target_compile_options(mifitness_bridge PRIVATE -Wall -Wextra -Werror -fvisibility=hidden -fno-exceptions -fno-rtti)
-target_link_options(mifitness_bridge PRIVATE -Wl,-z,relro,-z,now)
-target_link_libraries(mifitness_bridge log)

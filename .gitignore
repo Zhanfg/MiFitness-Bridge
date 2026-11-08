@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.apk
+*.aab
+*.apks
+*.xapk
+*.jks
+*.keystore
+*.log
+out-native/
+stage/
+*.so
