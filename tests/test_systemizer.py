@@ -173,15 +173,38 @@ class SystemizerSafetyTest(unittest.TestCase):
         self.assertEqual(result.read_bytes(), apk.read_bytes())
 
 
-    def run_boot_verifier(self, state, version):
+    def run_boot_verifier(self, state, version, pinned_hash=True):
         service_path = self.modpath / "service.sh"
         service_path.write_text((ROOT / "root-module" / "service.sh").read_text())
+        guard_path = self.modpath / "guard.sh"
+        guard_source = (ROOT / "root-module" / "guard.sh").read_text()
+        base = self.dir / "data" / "app" / "com.mi.health-test"
+        base.mkdir(parents=True, exist_ok=True)
+        apk = base / "base.apk"
+        apk.write_bytes(b"synthetic test APK, no proprietary content")
+        guard_source = guard_source.replace(
+            "/data/app/*.apk", str(self.dir / "data" / "app" / "*.apk")
+        )
+        guard_path.write_text(guard_source)
+        checker = self.modpath / "check-code.sh"
+        checker.write_text("#!/bin/sh\necho code_integrity=matches_packaged_manifest\nexit 0\n")
+        (self.modpath / "module.prop").write_text("id=mifitness_bridge\n")
+        (self.modpath / "bridge.conf").write_text(
+            "native_probe=1\ncalendar_hook=1\nfail_on_conflict=1\n"
+        )
         (self.modpath / "systemize-state.txt").write_text(state)
-        # No sleeping, actual root, devices, or package manager access.
         self.write_tool(
             "getprop",
             '#!/bin/sh\nif [ "$1" = "sys.boot_completed" ]; then echo 1; '
             'else echo arm64-v8a; fi\n'
+        )
+        self.write_tool(
+            "id", '#!/bin/sh\necho 0\n'
+        )
+        digest = ("112e603b8342cb134402a6dcabdf3ec16fd5171ec65a1d5f7cb7efd83cb0995d"
+                  if pinned_hash else "0"*64)
+        self.write_tool(
+            "sha256sum", "#!/bin/sh\nprintf '" + digest + "  %s\\n' \"$1\"\n"
         )
         env = os.environ.copy()
         env.update({
@@ -189,7 +212,7 @@ class SystemizerSafetyTest(unittest.TestCase):
             "MOCK_VERSION": version,
             "MOCK_ALL_PACKAGES": "package:com.mi.health",
             "MOCK_SYSTEM_PACKAGES": "package:com.mi.health",
-            "MOCK_PM_PATH": "",
+            "MOCK_PM_PATH": "package:" + str(apk),
         })
         proc = subprocess.run(
             ["sh", str(service_path)], env=env, capture_output=True,
@@ -198,26 +221,63 @@ class SystemizerSafetyTest(unittest.TestCase):
         output = (self.modpath / "boot-status.txt").read_text()
         return proc, output
 
-    def test_boot_version_drift_disables_own_overlay_at_next_boot(self):
+    def test_boot_upgrade_pauses_hooks_and_disables_own_stale_overlay(self):
         proc, report = self.run_boot_verifier("staged-reboot-required", "359009")
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("app_version_profile=mismatch_or_unavailable", report)
-        self.assertIn("module_action=disabled_on_next_boot_due_to_version_drift", report)
+        self.assertIn("package_profile=upgrade_unsupported", report)
+        self.assertIn("own_overlay=disabled_next_reboot", report)
         self.assertTrue((self.modpath / "disable").is_file())
+        self.assertIn("calendar_hook=0", (self.modpath / "bridge.conf").read_text())
+
+    def test_boot_downgrade_pauses_hooks_and_disables_own_stale_overlay(self):
+        proc, report = self.run_boot_verifier("staged-reboot-required", "359001")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("package_profile=downgrade_unsupported", report)
+        self.assertIn("own_overlay=disabled_next_reboot", report)
+        self.assertTrue((self.modpath / "disable").is_file())
+
+    def test_boot_same_version_different_bytes_pauses_hooks(self):
+        proc, report = self.run_boot_verifier("existing-system", "359002", pinned_hash=False)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("package_profile=apk_bytes_changed", report)
+        self.assertIn("calendar_hook=0", (self.modpath / "bridge.conf").read_text())
+        self.assertFalse((self.modpath / "disable").exists())
 
     def test_boot_unchanged_baseline_keeps_own_overlay(self):
         proc, report = self.run_boot_verifier("staged-reboot-required", "359002")
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("app_version_profile=359002_verified", report)
+        self.assertIn("package_profile=reviewed_359002", report)
         self.assertFalse((self.modpath / "disable").exists())
+        self.assertIn("calendar_hook=1", (self.modpath / "bridge.conf").read_text())
 
     def test_boot_foreign_sceme_overlay_is_never_disabled(self):
         proc, report = self.run_boot_verifier("existing-system", "359009")
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("app_version_profile=mismatch_or_unavailable", report)
+        self.assertIn("package_profile=upgrade_unsupported", report)
         self.assertFalse((self.modpath / "disable").exists())
 
-
+    def test_missing_code_guard_disables_module_without_touching_app(self):
+        # Separate module-code tampering is detected before package checking.
+        proc, report = self.run_boot_verifier("existing-system", "359002")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("code_integrity=matches_packaged_manifest", report)
+        # Recreate clean boot state and simulate a missing code checker.
+        (self.modpath / "check-code.sh").unlink()
+        service_path = self.modpath / "service.sh"
+        env = os.environ.copy()
+        env.update({
+            "PATH": str(self.bindir) + os.pathsep + env.get("PATH", ""),
+            "MOCK_VERSION": "359002",
+            "MOCK_ALL_PACKAGES": "package:com.mi.health",
+            "MOCK_SYSTEM_PACKAGES": "package:com.mi.health",
+        })
+        proc = subprocess.run(["sh", str(service_path)], env=env,
+                              capture_output=True, text=True, timeout=10)
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("code_integrity=checker_missing",
+                      (self.modpath / "boot-status.txt").read_text())
+        self.assertTrue((self.modpath / "disable").exists())
+        self.assertIn("calendar_hook=0", (self.modpath / "bridge.conf").read_text())
 
     def test_sourced_kernelsu_installer_continues_after_safe_skip(self):
         # KernelSU uses '. customize.sh'; 'exit 0' here would kill update-binary.
@@ -284,6 +344,9 @@ class SystemizerSafetyTest(unittest.TestCase):
         enable = self.modpath / "enable-calendar.sh"
         enable.write_text((ROOT / "root-module" / "enable-calendar.sh").read_text())
         (self.modpath / "module.prop").write_text("id=mifitness_bridge\n")
+        (self.modpath / "check-code.sh").write_text(
+            "#!/bin/sh\necho code_integrity=matches_packaged_manifest\nexit 0\n"
+        )
         config = self.modpath / "bridge.conf"
         config.write_text("native_probe=1\ncalendar_hook=0\nfail_on_conflict=1\n")
         base = self.dir / "data" / "app" / "com.mi.health-test"
