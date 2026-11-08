@@ -51,6 +51,7 @@ public final class CalendarHook {
 
     public static void install(Application app, boolean configEnabled) {
         if (!configEnabled || app == null || !APP.equals(app.getPackageName())) return;
+        CalendarHook hook = null;
         try {
             if (Build.VERSION.SDK_INT != 37 || !"PJZ110".equalsIgnoreCase(Build.MODEL)) {
                 NativeBridge.log(NativeBridge.WARN, "Unsupported ROM/device; hooks disabled");
@@ -84,7 +85,7 @@ public final class CalendarHook {
                     return;
                 }
             }
-            CalendarHook hook = new CalendarHook(app, feature, methods);
+            hook = new CalendarHook(app, feature, methods);
             if (!hook.calendarReady()) {
                 NativeBridge.log(NativeBridge.WARN, "Calendar Provider or READ_CALENDAR unavailable; hooks disabled");
                 return;
@@ -104,6 +105,11 @@ public final class CalendarHook {
             hook.enabled = true;
             NativeBridge.log(NativeBridge.INFO, "Calendar gates 3/3 installed, version=359002, ROM=ColorOS17");
         } catch (Throwable t) {
+            if (hook != null) {
+                try { hook.rollback(); } catch (Throwable ignored) {
+                    NativeBridge.log(NativeBridge.ERROR, "Calendar rollback encountered an exception");
+                }
+            }
             NativeBridge.log(NativeBridge.ERROR, "Calendar gate resolution failed: "+t.getClass().getSimpleName());
         }
     }
