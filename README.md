@@ -13,6 +13,21 @@ Experimental integration for **Xiaomi Mi Fitness** `com.mi.health` (versionCode 
 - **Conflict handling:** if a known competing ART injection engine is visible in the target process maps, calendar hooks fail closed. We do not and cannot revoke third-party hooks' privileges in the same process. No global Build property spoofing, no `system_server` hooks, no persistent polling daemon.
 - **Acquisition:** the Xiaomi store source probe and certificate pin remain available. Official GetApps pages returned HTTP 200 on the tested ColorOS phone **but did not expose `com.mi.health`**, so no verified direct official APK source has been established. APK auto-download and installation are **disabled**, rather than using an untrusted mirror.
 
+## v0.5.2 兼容性保护声明
+
+**用户始终可以自主升级、降级、卸载或修改小米运动健康。** 本模块不会阻止 PackageManager 安装、禁止卸载、自动降级恢复、向用户数据目录写入限制文件，或强制撤销其他 Zygisk 模块的权限。
+
+模块保护的是 **已审计 3.59.2 的 Hook 兼容性**：
+
+- 一次性启动校验版本、签名及 APK SHA-256，运行时不反复读取 APK，也不读取健康记录。
+- 开机按 `upgrade_unsupported`、`downgrade_unsupported`、`apk_bytes_changed` 等状态报告变更，并对新进程停用我们的日历 Hook。
+- 若由本模块暂存了系统 APK，检测到明确的版本漂移，则只将本模块标记为下次重启停用；既有 SCEME 不受影响。
+- 对本模块原生库、DEX 和脚本执行安装清单 SHA-256 检测，文件变动或缺失时安全停用。**这不是可以抵抗 Root 修改者的加密防篡改系统**，因为 Root 同样可以更改校验逻辑和清单。
+- 仅统计其他启用的 Zygisk 模块数量，报告共存风险。不能仅凭模块存在便认定其注入小米运动健康，更不能保证发现所有 Hook。
+- 健康记录、蓝牙配对和账号数据库没有被本模块自动备份或扫描。用户删除或修改这些数据后，如无事先可信备份，模块无法恢复。
+
+完整威胁模型及安全边界见 [Security Policy](docs/security-policy.md)。
+
 ## 两阶段启动策略（v0.5 实验性）
 
 初次安装时的 `bridge.conf` 默认配置是：
