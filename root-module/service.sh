@@ -33,5 +33,25 @@ else
     echo "system_app=not_confirmed" >> "$OUT"
   fi
 fi
+# An overlay must not silently pin a stale APK after the user upgrades Mi Fitness.
+# If our own system/app copy was staged, a mismatch disables this module at NEXT boot.
+# Never force-stop an application or reboot automatically in a boot service.
+version_ok=no
+if dumpsys package com.mi.health 2>/dev/null |
+    grep -Eq 'versionCode=359002([^0-9]|$)'; then
+  version_ok=yes
+fi
+if [ "$version_ok" = yes ]; then
+  echo "app_version_profile=359002_verified" >> "$OUT"
+else
+  echo "app_version_profile=mismatch_or_unavailable" >> "$OUT"
+  if [ "$state" = "staged-reboot-required" ]; then
+    if touch "$MODDIR/disable" 2>/dev/null; then
+      echo "module_action=disabled_on_next_boot_due_to_version_drift" >> "$OUT"
+    else
+      echo "module_action=disable_failed_manual_recovery_required" >> "$OUT"
+    fi
+  fi
+fi
 echo "hook_state=check_process_log" >> "$OUT"
 echo "apk_auto_install=disabled" >> "$OUT"
