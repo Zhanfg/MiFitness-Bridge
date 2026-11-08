@@ -11,6 +11,14 @@ if [ ! -r "$MODDIR/module.prop" ] ||
   echo 'Unexpected module path; refusing update' >&2
   exit 1
 fi
+# Activation is refused if any packaged native/DEX/script asset changed or vanished.
+# This is a corruption detector, not a guarantee against another root actor.
+if [ ! -r "$MODDIR/check-code.sh" ] ||
+   ! sh "$MODDIR/check-code.sh" 2>/dev/null |
+      grep -Fxq 'code_integrity=matches_packaged_manifest'; then
+  echo 'Module integrity check failed; calendar hooks remain disabled' >&2
+  exit 1
+fi
 if [ "$(getprop ro.build.version.sdk)" != 37 ] ||
    [ "$(getprop ro.product.model)" != PJZ110 ]; then
   echo 'Unsupported Android version or device model' >&2
