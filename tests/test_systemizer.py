@@ -274,5 +274,68 @@ class SystemizerSafetyTest(unittest.TestCase):
         self.assert_no_system_mount()
 
 
+    def run_enable_calendar(self, uid=0, version="359002", pinned_hash=True):
+        enable = self.modpath / "enable-calendar.sh"
+        enable.write_text((ROOT / "root-module" / "enable-calendar.sh").read_text())
+        (self.modpath / "module.prop").write_text("id=mifitness_bridge\n")
+        config = self.modpath / "bridge.conf"
+        config.write_text("native_probe=1\ncalendar_hook=0\nfail_on_conflict=1\n")
+        base = self.dir / "data" / "app" / "com.mi.health-test"
+        base.mkdir(parents=True, exist_ok=True)
+        apk = base / "base.apk"
+        apk.write_bytes(b"synthetic APK contents, not proprietary data")
+        self.write_tool("getprop", (
+            "#!/bin/sh\n"
+            'case "$1" in\n'
+            '  ro.build.version.sdk) echo 37 ;;\n'
+            '  ro.product.model) echo PJZ110 ;;\n'
+            '  *) echo arm64-v8a ;;\n'
+            'esac\n'
+        ))
+        self.write_tool("id", "#!/bin/sh\necho " + str(uid) + "\n")
+        self.write_tool("sha256sum",
+            "#!/bin/sh\nprintf '" +
+            ("112e603b8342cb134402a6dcabdf3ec16fd5171ec65a1d5f7cb7efd83cb0995d"
+             if pinned_hash else "0"*64) +
+            "  %s\\n' \"$1\"\n")
+        )
+        env = os.environ.copy()
+        env.update({
+            "PATH": str(self.bindir) + os.pathsep + env.get("PATH", ""),
+            "MOCK_VERSION": version,
+            "MOCK_PM_PATH": "package:" + str(apk),
+            "MOCK_ALL_PACKAGES": "package:com.mi.health",
+            "MOCK_SYSTEM_PACKAGES": "package:com.mi.health",
+        })
+        proc = subprocess.run(
+            ["sh", str(enable)], env=env, capture_output=True,
+            text=True, check=False, timeout=10
+        )
+        return proc, config.read_text()
+
+    def test_calendar_activation_requires_exact_reviewed_apk(self):
+        proc, config = self.run_enable_calendar()
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("native_probe=1", config)
+        self.assertIn("calendar_hook=1", config)
+        self.assertIn("fail_on_conflict=1", config)
+        self.assert_no_system_mount()
+
+    def test_calendar_activation_refuses_new_version(self):
+        proc, config = self.run_enable_calendar(version="359009")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("calendar_hook=0", config)
+
+    def test_calendar_activation_refuses_unknown_apk_hash(self):
+        proc, config = self.run_enable_calendar(pinned_hash=False)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("calendar_hook=0", config)
+
+    def test_calendar_activation_refuses_nonroot(self):
+        proc, config = self.run_enable_calendar(uid=2000)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("calendar_hook=0", config)
+
+
 if __name__ == "__main__":
     unittest.main()
