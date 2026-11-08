@@ -1,4 +1,37 @@
 #!/system/bin/sh
-# Intentionally no networking or package installation in diagnostic release.
+# One-shot post-boot status reconciliation. No networking, APK installation or daemon.
 MODDIR="$(dirname "$0")"
-echo 'Native calendar feature gating active only when ZN backend, trusted signed 3.59.2 and ColorOS 17 are verified; no APK install.' > "$MODDIR/service-status.txt"
+OUT="$MODDIR/boot-status.txt"
+state="$(cat "$MODDIR/systemize-state.txt" 2>/dev/null)"
+echo "mifitness_bridge_boot_check=started" > "$OUT"
+attempt=0
+while [ "$(getprop sys.boot_completed)" != "1" ] && [ "$attempt" -lt 30 ]; do
+  attempt=$((attempt+1))
+  sleep 2
+done
+if [ "$(getprop sys.boot_completed)" != "1" ]; then
+  echo "package_scan=not_ready" >> "$OUT"
+  exit 0
+fi
+all="$(pm list packages 2>/dev/null)"
+if [ -z "$all" ]; then
+  echo "package_scan=unavailable" >> "$OUT"
+  exit 0
+fi
+if printf '%s\n' "$all" | grep -Fxq 'package:com.mi.health'; then
+  echo "target_installed=yes" >> "$OUT"
+else
+  echo "target_installed=no" >> "$OUT"
+fi
+system="$(pm list packages -s 2>/dev/null)"
+if printf '%s\n' "$system" | grep -Fxq 'package:com.mi.health'; then
+  echo "system_app=yes" >> "$OUT"
+else
+  if [ "$state" = "staged-reboot-required" ]; then
+    echo "system_app=not_confirmed_after_stage" >> "$OUT"
+  else
+    echo "system_app=not_confirmed" >> "$OUT"
+  fi
+fi
+echo "hook_state=check_process_log" >> "$OUT"
+echo "apk_auto_install=disabled" >> "$OUT"
