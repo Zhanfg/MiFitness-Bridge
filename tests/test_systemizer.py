@@ -217,5 +217,35 @@ class SystemizerSafetyTest(unittest.TestCase):
 
 
 
+    def run_safe_mode(self, simulated_uid):
+        safe = self.modpath / "safe-mode.sh"
+        safe.write_text((ROOT / "root-module" / "safe-mode.sh").read_text())
+        (self.modpath / "module.prop").write_text("id=mifitness_bridge\nversion=v0.5.0-dev\n")
+        conf = self.modpath / "bridge.conf"
+        conf.write_text("calendar_hook=1\nfail_on_conflict=1\n")
+        self.write_tool("id", "#!/bin/sh\nprintf '%s\\n' '" + str(simulated_uid) + "'\n")
+        env = os.environ.copy()
+        env["PATH"] = str(self.bindir) + os.pathsep + env.get("PATH", "")
+        proc = subprocess.run(
+            ["sh", str(safe)], env=env, capture_output=True,
+            text=True, check=False, timeout=10
+        )
+        return proc, conf.read_text()
+
+    def test_safe_mode_disables_only_calendar_hook(self):
+        proc, conf = self.run_safe_mode(0)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("calendar_hook=0", conf)
+        self.assertIn("fail_on_conflict=1", conf)
+        self.assertFalse((self.modpath / "disable").exists())
+        self.assert_no_system_mount()
+
+    def test_non_root_safe_mode_refuses_configuration_changes(self):
+        proc, conf = self.run_safe_mode(2000)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("calendar_hook=1", conf)
+        self.assert_no_system_mount()
+
+
 if __name__ == "__main__":
     unittest.main()
